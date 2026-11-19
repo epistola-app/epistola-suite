@@ -8,7 +8,9 @@ Alpha, behind the `interactive-generation` feature toggle (off by default), impl
 2.1.0's interactive generation (contract ADR 0011). A caller sends `interactive` with
 `generateDocument`. When data is missing, or every time with `trigger: always`, the job waits in
 `awaiting-input` and the response carries a link to a form. A link opens for minutes and once; the
-job status hands out a fresh one on every call (contract 2.1.1). Cancelled jobs say why
+job status hands out a fresh one on every call (contract 2.1.1). The form is Suite's first page reachable without
+signing in: it shows the fields the template's data contract asks for, pre-filled with what the
+caller sent, renders a preview, and validates on the server before the job renders. Cancelled jobs say why
 (`cancelReason`), and a job with a form gets a `cancelled` line on the collect stream.
 
 Operators: the feature needs `epistola.generation.interactive.public-base-url`, the address people

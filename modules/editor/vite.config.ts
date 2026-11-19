@@ -37,6 +37,7 @@ export default defineConfig(({ mode }) => ({
         'template-editor': resolve(__dirname, 'src/main/typescript/lib.ts'),
         'theme-editor': resolve(__dirname, 'src/main/typescript/theme-editor-lib.ts'),
         'data-contract-editor': resolve(__dirname, 'src/main/typescript/data-contract-lib.ts'),
+        'data-form': resolve(__dirname, 'src/main/typescript/data-form-lib.ts'),
         'ai-plugin': resolve(__dirname, 'src/main/typescript/ai-plugin-lib.ts'),
         'walkthrough-plugin': resolve(__dirname, 'src/main/typescript/walkthrough-plugin-lib.ts'),
         'catalog-organise': resolve(__dirname, 'src/main/typescript/catalog-organise-lib.ts'),

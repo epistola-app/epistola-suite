@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<!--/* The interactive generation form (contract ADR 0011): reachable without signing in, on the
+       form session a redeemed link started. No navigation, no tenant chrome: only what the caller
+       said about the document, the fields, a preview and the two actions. The caller's texts are
+       shown as given, escaped; no HTML or Markdown. */-->
+<html th:lang="${lang}" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title th:text="${title != null} ? ${title} : 'Complete the document'">Complete the document</title>
+    <th:block th:replace="~{fragments/styles :: styles}" />
+    <link rel="stylesheet" th:href="@{/editor/data-contract-editor.css}">
+    <link rel="stylesheet" th:href="@{/css/interactive-form.css}">
+    <script type="module" th:src="@{/js/pages/interactive-form.js}"></script>
+</head>
+<body class="iform-body">
+<main class="iform-page" data-interactive-form th:attr="data-request-id=${requestId}">
+    <header class="iform-header">
+        <h1 th:text="${title != null} ? ${title} : 'Complete the document'" data-testid="form-title">Complete the document</h1>
+        <p class="iform-instructions" th:if="${instructions != null}" th:text="${instructions}" data-testid="form-instructions"></p>
+        <ul class="iform-links" th:if="${!links.isEmpty()}">
+            <li th:each="link : ${links}">
+                <a th:href="${link.url}" th:text="${link.label}" target="_blank" rel="noreferrer noopener"></a>
+            </li>
+        </ul>
+    </header>
+
+    <div class="alert alert-error" th:if="${hasProblems}" data-testid="form-problems">
+        <p>Some fields still need attention. They are marked below.</p>
+    </div>
+
+    <div class="iform-layout">
+        <section class="card iform-fields">
+            <div class="card-content">
+                <div data-form-fields data-testid="form-fields"></div>
+            </div>
+        </section>
+        <section class="card iform-preview" data-form-preview-pane hidden>
+            <div class="card-content">
+                <p class="iform-preview-message" data-form-preview-message></p>
+                <iframe class="iform-preview-frame" data-form-preview-frame title="Preview" hidden></iframe>
+            </div>
+        </section>
+    </div>
+
+    <footer class="iform-actions">
+        <form method="post" th:action="@{/forms/{id}/submit(id=${requestId})}" data-form-submit>
+            <input type="hidden" name="guard" th:value="${guard}">
+            <input type="hidden" name="data" data-form-data th:value="${data}">
+            <button type="button" class="ep-btn ep-btn-outline" data-form-preview data-testid="form-preview">Preview</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="form-submit">Submit</button>
+        </form>
+        <form method="post" th:action="@{/forms/{id}/cancel(id=${requestId})}">
+            <input type="hidden" name="guard" th:value="${guard}">
+            <button type="submit" class="ep-btn ep-btn-ghost" data-testid="form-cancel">Cancel</button>
+        </form>
+    </footer>
+    <p class="text-muted iform-expiry" th:text="'This form is open until ' + ${#temporals.format(expiresAt, 'yyyy-MM-dd HH:mm')} + ' UTC.'"></p>
+
+    <script type="application/json" id="form-definition" th:utext="${definition}"></script>
+    <script type="application/json" id="form-problems" th:utext="${problems}"></script>
+    <input type="hidden" id="form-guard" th:value="${guard}">
+</main>
+</body>
+</html>

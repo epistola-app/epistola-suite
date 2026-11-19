@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<!--/* How an interactive generation form ended, for a person who still holds a session on it. */-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>Epistola</title>
+    <th:block th:replace="~{fragments/styles :: styles}" />
+    <link rel="stylesheet" th:href="@{/css/interactive-form.css}">
+</head>
+<body class="iform-body">
+<main class="iform-page iform-ended" data-testid="form-closed" th:attr="data-outcome=${outcome}">
+    <th:block th:switch="${outcome}">
+        <div th:case="'SUBMITTED'">
+            <h1>Thank you</h1>
+            <p>The document is on its way. You can close this page.</p>
+        </div>
+        <div th:case="'CANCELLED'">
+            <h1>Cancelled</h1>
+            <p>No document will be made. You can close this page.</p>
+        </div>
+        <div th:case="*">
+            <h1>This form has expired</h1>
+            <p>No document was made. Ask the application that sent you here to start again.</p>
+        </div>
+    </th:block>
+    <p th:if="${returnUrl != null}"><a class="ep-btn ep-btn-outline" th:href="${returnUrl}" rel="noreferrer">Back</a></p>
+</main>
+</body>
+</html>

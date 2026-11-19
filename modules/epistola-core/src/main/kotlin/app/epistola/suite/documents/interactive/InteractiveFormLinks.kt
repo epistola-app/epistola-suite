@@ -89,13 +89,15 @@ class InteractiveFormLinks(
     fun isSession(requestId: GenerationRequestKey, token: String): Boolean = verify(SESSION, requestId, token) != null
 
     /**
-     * The anti-forgery value the form posts back with [sessionToken]. The session cookie is
-     * `SameSite=Lax`, so a cross-site post never carries it; this binds every post to the page the
-     * session rendered as well.
+     * The anti-forgery value every post on [requestId]'s form carries. The session cookie is
+     * `SameSite=Lax`, so another site's post never carries it; the guard, signed by this installation
+     * and only ever written into the form's own page, is a second line another site cannot forge. It
+     * depends on the form, not the session, so a page rendered in one tab still posts after another
+     * tab renewed the session.
      */
-    fun formGuard(sessionToken: String): String = b64(mac(GUARD, sessionToken.toByteArray(Charsets.US_ASCII)))
+    fun formGuard(requestId: GenerationRequestKey): String = b64(mac(GUARD, requestId.value.toString().toByteArray(Charsets.US_ASCII)))
 
-    fun isFormGuard(sessionToken: String, guard: String): Boolean = MessageDigest.isEqual(formGuard(sessionToken).toByteArray(), guard.toByteArray())
+    fun isFormGuard(requestId: GenerationRequestKey, guard: String): Boolean = MessageDigest.isEqual(formGuard(requestId).toByteArray(), guard.toByteArray())
 
     private data class Claims(val expiresAt: OffsetDateTime, val nonce: String)
 

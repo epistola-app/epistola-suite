@@ -8,6 +8,8 @@ import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.interactive.BoundDataContract
+import app.epistola.suite.documents.interactive.FormDefinition
+import app.epistola.suite.documents.interactive.FormDefinitionResolver
 import app.epistola.suite.documents.interactive.FormOutcome
 import app.epistola.suite.documents.interactive.FormSession
 import app.epistola.suite.documents.interactive.InteractiveFormLinks
@@ -30,7 +32,8 @@ sealed interface InteractiveFormView {
     val tenantKey: TenantKey
 
     /**
-     * A form the person can fill in: the data contract of the release the request is bound to, the
+     * A form the person can fill in: the [definition] the page renders (generated from the data
+     * contract of the release the request is bound to), the
      * data so far (the caller's), and what the caller said about it. [analysis] says what is still
      * missing or invalid in [data], for marking fields. [session] is the person's session, renewed.
      */
@@ -45,7 +48,7 @@ sealed interface InteractiveFormView {
         val links: List<InteractiveLink>,
         val locale: String?,
         val returnUrl: String?,
-        val dataModel: ObjectNode?,
+        val definition: FormDefinition,
         val data: ObjectNode,
         val missingFields: List<MissingDataField>,
         val analysis: TemplateDataAnalysis,
@@ -82,6 +85,7 @@ class GetInteractiveFormHandler(
     private val forms: InteractiveForms,
     private val boundContract: BoundDataContract,
     private val links: InteractiveFormLinks,
+    private val definitions: FormDefinitionResolver,
 ) : QueryHandler<GetInteractiveForm, InteractiveFormView?> {
 
     override fun handle(query: GetInteractiveForm): InteractiveFormView? {
@@ -102,7 +106,7 @@ class GetInteractiveFormHandler(
             links = form.links,
             locale = form.locale,
             returnUrl = form.returnUrl,
-            dataModel = contract.dataModel,
+            definition = definitions.resolve(request, contract),
             data = request.data,
             missingFields = form.missingFields,
             analysis = boundContract.analyze(contract, request.data),

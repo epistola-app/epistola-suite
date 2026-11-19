@@ -1,0 +1,68 @@
+/* SPDX-FileCopyrightText: Epistola Nederland B.V. */
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+/* The interactive generation form: a page of its own, without the app's navigation. */
+.iform-body {
+  background: var(--ep-color-background, #f8fafc);
+}
+
+.iform-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--ep-space-8, 2rem) var(--ep-space-4, 1rem);
+}
+
+.iform-header h1 {
+  margin-bottom: var(--ep-space-2, 0.5rem);
+}
+
+/* The caller's instructions are plain text; their line breaks are kept. */
+.iform-instructions {
+  white-space: pre-line;
+}
+
+.iform-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-4, 1rem);
+  padding: 0;
+  list-style: none;
+}
+
+.iform-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ep-space-6, 1.5rem);
+  margin-top: var(--ep-space-6, 1.5rem);
+}
+
+.iform-layout:has(.iform-preview:not([hidden])) {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.iform-preview-frame {
+  width: 100%;
+  height: 75vh;
+  border: 0;
+}
+
+.iform-actions {
+  display: flex;
+  gap: var(--ep-space-3, 0.75rem);
+  justify-content: flex-end;
+  margin-top: var(--ep-space-6, 1.5rem);
+}
+
+.iform-actions form {
+  display: flex;
+  gap: var(--ep-space-3, 0.75rem);
+}
+
+.iform-expiry {
+  text-align: right;
+}
+
+.iform-ended {
+  max-width: 40rem;
+  text-align: center;
+}

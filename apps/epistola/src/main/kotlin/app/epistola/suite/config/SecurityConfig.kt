@@ -189,7 +189,7 @@ class SecurityConfig(
      * and/or OAuth2 based on available beans.
      */
     @Bean
-    @Order(2)
+    @Order(3)
     @Profile("!test")
     fun uiSecurityFilterChain(http: HttpSecurity): SecurityFilterChain {
         val formLogin = hasFormLogin()
@@ -209,6 +209,9 @@ class SecurityConfig(
                     .requestMatchers("/livez", "/readyz").permitAll()
                     .requestMatchers("/login", "/login-popup-success", "/error", "/errors/**").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/fonts/**", "/images/**", "/design-system/**", "/favicon.ico").permitAll()
+                    // The editor's static bundles: code only, no data. The interactive generation form,
+                    // reachable without signing in, loads one (InteractiveFormSecurityConfig).
+                    .requestMatchers("/editor/**").permitAll()
                 // OAuth2 endpoints need to be public when OAuth2 is enabled
                 if (oauth2) {
                     authorize.requestMatchers("/oauth2/**").permitAll()
@@ -307,18 +310,7 @@ class SecurityConfig(
                     // behavior lives in static JS, server data in inert
                     // <script type="application/json"> islands. style-src keeps
                     // 'unsafe-inline' deliberately (Option E of the ADR is deferred).
-                    csp.policyDirectives(
-                        "default-src 'self'; " +
-                            "script-src 'self'; " +
-                            "style-src 'self' 'unsafe-inline'; " +
-                            "font-src 'self'; " +
-                            "img-src 'self' data:; " +
-                            "connect-src 'self'; " +
-                            "frame-src blob:; " +
-                            "frame-ancestors ${embeddingProperties.cspFrameAncestors}; " +
-                            "object-src 'none'; " +
-                            "base-uri 'self'",
-                    )
+                    csp.policyDirectives(contentSecurityPolicy(embeddingProperties))
                 }
                 if (embeddingProperties.disableXFrameOptions) {
                     headers.frameOptions { it.disable() }
@@ -353,3 +345,18 @@ class SecurityConfig(
     // The `test` profile's permit-all chain is not here: it lives in the test-only library
     // (modules/testing, TestSecurityConfiguration), so it is never in the application.
 }
+
+/**
+ * The UI's content security policy (ADR 0010): `script-src` strictly `'self'`, behaviour in static
+ * JS, server data in inert JSON islands. Shared by the UI chain and the interactive form's.
+ */
+internal fun contentSecurityPolicy(embedding: EmbeddingProperties): String = "default-src 'self'; " +
+    "script-src 'self'; " +
+    "style-src 'self' 'unsafe-inline'; " +
+    "font-src 'self'; " +
+    "img-src 'self' data:; " +
+    "connect-src 'self'; " +
+    "frame-src blob:; " +
+    "frame-ancestors ${embedding.cspFrameAncestors}; " +
+    "object-src 'none'; " +
+    "base-uri 'self'"

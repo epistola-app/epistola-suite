@@ -434,6 +434,30 @@ Disable this to require manual user creation before login.
 | `epistola.auth.oidc.silent-login`         | `true`             | Try a silent SSO sign-in before showing the login page            |
 | `epistola.auth.oidc.backchannel-base-url` | _(none)_           | Internal base URL for server-to-server OIDC calls (split-horizon) |
 
+## The interactive generation form (no sign-in)
+
+`/forms/{requestId}` is the one page reachable without signing in (contract ADR 0011, alpha, behind
+the `interactive-generation` toggle). The person filling it in has no Epistola account; the caller
+that created the generation request authenticated them and handed them a link.
+
+- **The link** is `/forms/{requestId}?authCode={code}`, a code signed by the installation over the
+  request, its expiry (`epistola.generation.interactive.link-lifetime`, 15 minutes) and a nonce. It
+  opens the form once. `getGenerationJobStatus` hands out a fresh one on every call
+  (epistola-contract#134).
+- **Opening it** redeems the code into a form session: a signed cookie `epistola_form`, scoped to
+  `/forms/{requestId}`, `HttpOnly`, `SameSite=Lax`, `Secure` behind an https public base URL. Its
+  expiry slides with every request (`session-idle-timeout`, 60 minutes) and never passes the
+  request's wait. The response redirects to the clean URL, so the code never stays in the address
+  bar or the history.
+- **Every post** (submit, cancel, preview) carries a guard signed over the request, written only
+  into the form's own page. With the `SameSite=Lax` cookie, that replaces Spring's CSRF token, which
+  this chain (`InteractiveFormSecurityConfig`) does not use; it creates no HTTP session either.
+- The core commands check the session themselves, so nothing reaches a form by its request id alone.
+  Anything that is not a live session on an existing form gets one neutral page. The page sends
+  `Referrer-Policy: no-referrer`, `Cache-Control: no-store` and the UI's content security policy.
+- The editor's static bundles (`/editor/**`) are reachable without signing in, because the form page
+  loads one. They are code, not data.
+
 ## Session Management
 
 Sessions are stored in PostgreSQL using Spring Session JDBC, enabling:

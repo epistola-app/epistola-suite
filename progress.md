@@ -82,14 +82,18 @@ Plan: `docs/plans/interactive-generation.md`. Contract 2.1.0 (ADR 0011, alpha) b
 `generation_request_interactions`, analysis against the bound release, token link, submit / cancel /
 expire, `cancelled` collect lines with `cancelReason`, `data` and `editedFields` on results); allowed
 return origins per application; the REST mapping (echo, `cancelReason`, item `data`/`editedFields`).
-Still to come: the public form page with preview, "try it" from the template page, demo catalog,
-docs.
+Built since: short-lived single-use links and form sessions (contract#134, Suite side), and the
+public form page (`/forms/{id}`, own security chain, preview with per-form limits, the
+`data-form` editor entry). Still to come: "try it" from the template page, demo catalog, docs page.
 
 **Coverage:**
 
 - ✅ `InteractiveGenerationIntegrationTest` (27, core): triggers, never an example, never claimed,
   expiry and origin refusals, submit once, render after submit, cancel by caller/person/expiry;
   links that open once, forged/other/expired codes, sessions bound to their form and renewed.
+- ✅ `InteractiveFormHandlerTest` (7, app): redeem → cookie + clean URL, neutral page, guard,
+  submit/cancel redirects, preview, headers. `InteractiveFormUiTest` (2, Playwright): fill, preview,
+  submit under the strict CSP. `data-form-lib.test.ts` (2).
 - ✅ `InteractiveGenerationApiIT` (6 of 7, app): contract scenarios 400, 401, 403–406 over HTTP.
   One test is disabled, see below.
 - ✅ unit: `OriginsTest`, `EditedFieldsTest`, `ReturnUrlsTest`, `ApiValidationCodesTest`,

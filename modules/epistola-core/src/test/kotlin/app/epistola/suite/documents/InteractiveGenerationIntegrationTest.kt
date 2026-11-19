@@ -22,18 +22,22 @@ import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.commands.RedeemFormLink
 import app.epistola.suite.documents.commands.SubmitFormOutcome
 import app.epistola.suite.documents.commands.SubmitInteractiveForm
+import app.epistola.suite.documents.interactive.FormDefinition
 import app.epistola.suite.documents.interactive.FormOutcome
 import app.epistola.suite.documents.interactive.FormSession
+import app.epistola.suite.documents.interactive.InteractiveFormPreview
 import app.epistola.suite.documents.interactive.InteractiveGeneration
 import app.epistola.suite.documents.interactive.InteractiveLink
 import app.epistola.suite.documents.interactive.InteractiveTrigger
 import app.epistola.suite.documents.model.CancelReason
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.documents.queries.FormPreviewOutcome
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.GetInteractiveForm
 import app.epistola.suite.documents.queries.InteractiveFormView
 import app.epistola.suite.documents.queries.ListGenerationJobs
+import app.epistola.suite.documents.queries.PreviewInteractiveForm
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
@@ -355,7 +359,7 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
         assertThat(form.title).isEqualTo("Invoice, case Z-1")
         assertThat(form.instructions).isEqualTo("Fill in the date.\nCheck the name.")
         assertThat(form.data).isEqualTo(json("""{"customer": {"phone": "555"}}"""))
-        assertThat(form.dataModel!!.get("required").values().map { it.asString() }).containsExactly("customer", "invoiceDate")
+        assertThat((form.definition as FormDefinition.Generated).schema!!.get("required").values().map { it.asString() }).containsExactly("customer", "invoiceDate")
         assertThat(form.analysis.valid).isFalse()
     }
 
@@ -406,6 +410,33 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
         testClock.advanceBy(Duration.ofMinutes(50))
         assertThat(query(GetInteractiveForm(request.id, session))).`as`("the first session, 100 idle minutes old").isNull()
         assertThat(query(GetInteractiveForm(request.id, renewed.session.token))).isInstanceOf(InteractiveFormView.Open::class.java)
+    }
+
+    @Test
+    fun `a preview renders the bound template for valid data, never for invalid data or another form`() = withReleasedTemplate { setup ->
+        val request = execute(setup.generate("""{"customer": {}}""", incomplete))
+        val other = execute(setup.generate("{}", incomplete))
+        val session = sessionOn(request)
+
+        val rendered = query(PreviewInteractiveForm(request.id, session, json(complete)))
+        assertThat(rendered).isInstanceOf(FormPreviewOutcome.Rendered::class.java)
+        assertThat(String((rendered as FormPreviewOutcome.Rendered).pdf.copyOfRange(0, 5))).isEqualTo("%PDF-")
+
+        val invalid = query(PreviewInteractiveForm(request.id, session, json("""{"customer": {}}""")))
+        assertThat((invalid as FormPreviewOutcome.Invalid).analysis.missingFields.map { it.path }).contains("/invoiceDate")
+
+        assertThat(query(PreviewInteractiveForm(other.id, session, json(complete)))).isNull()
+    }
+
+    @Test
+    fun `a form gets a limited number of previews a minute`() = withReleasedTemplate { setup ->
+        val request = execute(setup.generate("{}", incomplete))
+        val session = sessionOn(request)
+
+        val outcomes = (1..InteractiveFormPreview.PREVIEWS_PER_MINUTE + 1).map { query(PreviewInteractiveForm(request.id, session, json(complete))) }
+
+        assertThat(outcomes.dropLast(1)).allMatch { it is FormPreviewOutcome.Rendered }
+        assertThat(outcomes.last()).isEqualTo(FormPreviewOutcome.Limited)
     }
 
     @Test
