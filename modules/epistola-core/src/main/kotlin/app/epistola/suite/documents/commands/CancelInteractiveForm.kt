@@ -6,6 +6,7 @@ package app.epistola.suite.documents.commands
 
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.documents.interactive.FormOutcome
+import app.epistola.suite.documents.interactive.InteractiveFormLinks
 import app.epistola.suite.documents.interactive.InteractiveForms
 import app.epistola.suite.documents.interactive.ReturnUrls
 import app.epistola.suite.documents.model.CancelReason
@@ -34,12 +35,14 @@ sealed interface CancelFormOutcome {
  * [CancelReason.USER], and the caller learns it from a `cancelled` collect result. What the person
  * typed was never stored, so nothing of it is kept.
  *
- * [SystemInternal]: the token is the authority, as for [SubmitInteractiveForm].
+ * Null when [session] is not a live session on [requestId]'s form.
+ *
+ * [SystemInternal]: the session is the authority, as for [SubmitInteractiveForm].
  */
-data class CancelInteractiveForm(val token: String) :
+data class CancelInteractiveForm(val requestId: GenerationRequestKey, val session: String) :
     Command<CancelFormOutcome?>,
     SystemInternal {
-    override fun toString(): String = "CancelInteractiveForm(token=***)"
+    override fun toString(): String = "CancelInteractiveForm(requestId=$requestId, session=***)"
 }
 
 @Component
@@ -47,12 +50,14 @@ class CancelInteractiveFormHandler(
     private val jdbi: Jdbi,
     private val forms: InteractiveForms,
     private val mediator: Mediator,
+    private val links: InteractiveFormLinks,
 ) : CommandHandler<CancelInteractiveForm, CancelFormOutcome?> {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: CancelInteractiveForm): CancelFormOutcome? = jdbi.inTransaction<CancelFormOutcome?, Exception> { handle ->
-        val form = forms.find(handle, command.token, forUpdate = true) ?: return@inTransaction null
+        if (!links.isSession(command.requestId, command.session)) return@inTransaction null
+        val form = forms.find(handle, command.requestId, forUpdate = true) ?: return@inTransaction null
         form.outcome?.let { return@inTransaction CancelFormOutcome.Closed(it, form.returnUrl) }
         val cancelled = handle.createQuery(
             """

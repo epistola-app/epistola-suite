@@ -3,9 +3,10 @@
 --
 -- A request that waits is a row in document_generation_requests with status AWAITING_INPUT. The
 -- poller and stale-job recovery select only PENDING and IN_PROGRESS rows, so it is never claimed
--- until the form moves it to PENDING. What the form needs (its link, the caller's texts, the data
--- as the caller sent it) lives in generation_request_interactions, partitioned on the same
--- created_at as its request so retention drops both together.
+-- until the form moves it to PENDING. What the form needs (the caller's texts, the data as the
+-- caller sent it) lives in generation_request_interactions, partitioned on the same created_at as
+-- its request so retention drops both together. Links to the form are short-lived signed codes
+-- (epistola-contract#134); only a redeemed code's nonce is kept, until it would have expired.
 --
 -- rollback-compatible: false
 -- reason: Requests may now hold status AWAITING_INPUT and CANCELLED results may be emitted, which
@@ -37,11 +38,8 @@ CREATE TABLE generation_request_interactions (
     created_at      TIMESTAMPTZ NOT NULL,
     tenant_key      TENANT_KEY  NOT NULL,
     trigger         VARCHAR(16) NOT NULL CONSTRAINT chk_interactions_trigger CHECK (trigger IN ('INCOMPLETE', 'ALWAYS')),
-    -- The link's token: its SHA-256 (hex) to find the form, and the token itself encrypted
-    -- (credential encryption) so the link can be handed out again while the request waits. NULL
-    -- when nothing was asked.
-    token_hash      CHAR(64),
-    token_encrypted TEXT,
+    -- When the request stops waiting for the person (application time); NULL when nothing was asked.
+    -- Links to the form are short-lived signed codes, nothing of them is stored here.
     expires_at      TIMESTAMPTZ,
     return_url      TEXT,
     title           TEXT,
@@ -54,16 +52,23 @@ CREATE TABLE generation_request_interactions (
     caller_data     JSONB       NOT NULL,
     -- JSON Pointers where the submitted data differs from caller_data. NULL until submitted.
     edited_fields   JSONB,
-    PRIMARY KEY (request_id, created_at),
-    CONSTRAINT chk_interactions_token CHECK ((token_hash IS NULL) = (token_encrypted IS NULL)),
-    CONSTRAINT chk_interactions_token_expiry CHECK (token_hash IS NULL OR expires_at IS NOT NULL)
+    PRIMARY KEY (request_id, created_at)
 ) PARTITION BY RANGE (created_at);
 
--- The form page finds its request by the token's hash.
-CREATE INDEX idx_interactions_token_hash ON generation_request_interactions (token_hash) WHERE token_hash IS NOT NULL;
+-- The form page finds its request by id (the link's path), without knowing its partition.
+CREATE INDEX idx_interactions_request ON generation_request_interactions (request_id);
 
 -- No initial partitions: PartitionMaintenanceScheduler creates the current and next month at
 -- startup, as for document_content.
+
+-- A link's code works once: the nonce of every redeemed code is kept until the code would have
+-- expired anyway, then swept. Codes live minutes, so the table stays small.
+CREATE TABLE generation_form_link_redemptions (
+    nonce      CHAR(22)    NOT NULL PRIMARY KEY,
+    expires_at TIMESTAMPTZ NOT NULL
+);
+
+COMMENT ON TABLE generation_form_link_redemptions IS 'Nonces of redeemed interactive form link codes, so a code opens the form once; swept after expires_at.';
 
 COMMENT ON TABLE generation_request_interactions IS 'The form of a generation request created with interactive (contract ADR 0011, alpha). Partitioned on its request''s created_at and dropped with it by retention. Holds personal data: the caller''s texts and data.';
 

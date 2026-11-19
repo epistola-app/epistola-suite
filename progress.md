@@ -87,8 +87,9 @@ docs.
 
 **Coverage:**
 
-- ✅ `InteractiveGenerationIntegrationTest` (24, core): triggers, never an example, never claimed,
-  expiry and origin refusals, submit once, render after submit, cancel by caller/person/expiry.
+- ✅ `InteractiveGenerationIntegrationTest` (27, core): triggers, never an example, never claimed,
+  expiry and origin refusals, submit once, render after submit, cancel by caller/person/expiry;
+  links that open once, forged/other/expired codes, sessions bound to their form and renewed.
 - ✅ `InteractiveGenerationApiIT` (6 of 7, app): contract scenarios 400, 401, 403–406 over HTTP.
   One test is disabled, see below.
 - ✅ unit: `OriginsTest`, `EditedFieldsTest`, `ReturnUrlsTest`, `ApiValidationCodesTest`,
@@ -106,7 +107,10 @@ docs.
 - `listGenerationJobs` parses `status` with `RequestStatus.valueOf`, while the contract sends
   `pending`, `in-progress`, … (and has no `awaiting-input` value), so filtering by status cannot
   work as specified. Predates this branch.
-- epistola-contract#134: short-lived form links, deferred; v1 implements 2.1.0 as published.
+- epistola-contract#134 (short-lived links) is implemented in Suite core and prepared in the
+  contract worktree `epistola-contract-wt-forms` (branch `fix/url-pattern-anchors`, with the
+  pattern fix) for 2.1.1. Until 2.1.1 is released, REST cannot return `urlExpiresAt` and the
+  return-URL API test stays disabled.
 
 ### Dependency review (12 November; branch `chore/dependency-review`)
 

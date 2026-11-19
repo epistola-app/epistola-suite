@@ -4,10 +4,10 @@
 
 package app.epistola.suite.documents.interactive
 
-import app.epistola.suite.crypto.Secret
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.templates.validation.MissingDataField
+import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.kotlin.mapTo
 import org.jdbi.v3.json.Json
@@ -17,17 +17,18 @@ import java.util.UUID
 
 /**
  * Attaches the form of each request created with `interactive` to the requests a query read, in
- * one round trip. The link is handed out again only while a request is awaiting input (contract
- * ADR 0011: "Fetched, not stored").
+ * one round trip. With [withLinks], a request awaiting input gets a fresh, short-lived link
+ * (epistola-contract#134): the job status hands one out on every call; a listing hands out none,
+ * so a caller polling a list does not collect live links it never uses.
  */
 @Component
-class InteractiveStates(private val formTokens: InteractiveFormTokens) {
+class InteractiveStates(private val formLinks: InteractiveFormLinks) {
 
-    fun attach(handle: Handle, requests: List<DocumentGenerationRequest>): List<DocumentGenerationRequest> {
+    fun attach(handle: Handle, requests: List<DocumentGenerationRequest>, withLinks: Boolean): List<DocumentGenerationRequest> {
         if (requests.isEmpty()) return requests
         val rows = handle.createQuery(
             """
-            SELECT request_id, trigger, token_encrypted, expires_at, missing_fields, edited_fields
+            SELECT request_id, trigger, expires_at, missing_fields, edited_fields
             FROM generation_request_interactions
             WHERE request_id = ANY(:ids)
             """,
@@ -37,24 +38,25 @@ class InteractiveStates(private val formTokens: InteractiveFormTokens) {
             .associateBy { it.requestId }
         return requests.map { request ->
             val row = rows[request.id.value] ?: return@map request
+            val link = row.expiresAt
+                ?.takeIf { withLinks && request.status == RequestStatus.AWAITING_INPUT && it.isAfter(EpistolaClock.offsetDateTime()) }
+                ?.let { formLinks.issue(request.id, it) }
             request.copy(
                 interactive = InteractiveState(
                     trigger = InteractiveTrigger.valueOf(row.trigger),
-                    url = row.tokenEncrypted?.takeIf { request.status == RequestStatus.AWAITING_INPUT }?.let { formTokens.link(it.value) },
+                    url = link?.url,
                     expiresAt = row.expiresAt,
                     missingFields = row.missingFields,
                     editedFields = row.editedFields,
+                    urlExpiresAt = link?.expiresAt,
                 ),
             )
         }
     }
 
-    fun attach(handle: Handle, request: DocumentGenerationRequest): DocumentGenerationRequest = attach(handle, listOf(request)).single()
-
     internal data class InteractionRow(
         val requestId: UUID,
         val trigger: String,
-        val tokenEncrypted: Secret?,
         val expiresAt: OffsetDateTime?,
         @Json val missingFields: List<MissingDataField>,
         @Json val editedFields: List<String>?,

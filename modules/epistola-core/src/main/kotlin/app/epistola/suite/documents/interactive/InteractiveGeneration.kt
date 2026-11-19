@@ -85,8 +85,10 @@ data class InteractiveGeneration(
  * The form of a request created with `interactive`, as the caller sees it (contract
  * `InteractiveGenerationDto` plus the item's `editedFields`).
  *
- * @property url Where to send the person's browser; set only while the request is awaiting input.
- * @property expiresAt When the link stops working; null when nothing was asked.
+ * @property url A fresh link to the form; set only while the request is awaiting input, and only by
+ *   the reads that hand one out (acceptance and the job status, never a listing).
+ * @property expiresAt When the request stops waiting for the person; null when nothing was asked.
+ * @property urlExpiresAt When [url] can no longer be opened; set exactly when [url] is.
  * @property missingFields What the form asks for; empty when nothing was asked.
  * @property editedFields JSON Pointers where the data differs from what the caller sent; null while
  *   the request is awaiting input, and set (possibly empty) once it is submitted or when nothing was
@@ -98,6 +100,7 @@ data class InteractiveState(
     val expiresAt: OffsetDateTime?,
     val missingFields: List<MissingDataField>,
     val editedFields: List<String>?,
+    val urlExpiresAt: OffsetDateTime? = null,
 )
 
 private const val MAX_LINK_LABEL = 100

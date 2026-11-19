@@ -15,7 +15,6 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.crypto.Secret
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentVisibility
 import app.epistola.suite.documents.EnvironmentNotFoundException
@@ -23,7 +22,7 @@ import app.epistola.suite.documents.NoPublishedVersionException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.interactive.BoundDataContract
-import app.epistola.suite.documents.interactive.InteractiveFormTokens
+import app.epistola.suite.documents.interactive.InteractiveFormLinks
 import app.epistola.suite.documents.interactive.InteractiveGeneration
 import app.epistola.suite.documents.interactive.InteractiveGenerationProperties
 import app.epistola.suite.documents.interactive.InteractiveState
@@ -115,7 +114,7 @@ class GenerateDocumentHandler(
     private val boundContract: BoundDataContract,
     private val interactiveProperties: InteractiveGenerationProperties,
     private val originPolicy: ReturnOriginPolicy,
-    private val formTokens: InteractiveFormTokens,
+    private val formLinks: InteractiveFormLinks,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<GenerateDocument, DocumentGenerationRequest> {
 
@@ -225,16 +224,15 @@ class GenerateDocumentHandler(
         form: PlannedForm,
         callerData: ObjectNode,
     ): InteractiveState {
-        val token = if (form.asks) formTokens.mint() else null
         val expiresAt = if (form.asks) EpistolaClock.offsetDateTime().plusMinutes(form.expiresInMinutes) else null
         handle.createUpdate(
             """
             INSERT INTO generation_request_interactions (
-                request_id, created_at, tenant_key, trigger, token_hash, token_encrypted, expires_at, return_url, title, instructions,
+                request_id, created_at, tenant_key, trigger, expires_at, return_url, title, instructions,
                 links, locale, missing_fields, caller_data, edited_fields
             )
             VALUES (
-                :requestId, :createdAt, :tenantKey, :trigger, :tokenHash, :tokenEncrypted, :expiresAt, :returnUrl, :title, :instructions,
+                :requestId, :createdAt, :tenantKey, :trigger, :expiresAt, :returnUrl, :title, :instructions,
                 :links::jsonb, :locale, :missingFields::jsonb, :callerData::jsonb, :editedFields::jsonb
             )
             """,
@@ -243,8 +241,6 @@ class GenerateDocumentHandler(
             .bind("createdAt", request.createdAt)
             .bind("tenantKey", request.tenantKey)
             .bind("trigger", interactive.trigger.name)
-            .bind("tokenHash", token?.hash)
-            .bind("tokenEncrypted", token?.let { Secret(it.token) })
             .bind("expiresAt", expiresAt)
             .bind("returnUrl", interactive.returnUrl)
             .bind("title", interactive.title)
@@ -256,12 +252,14 @@ class GenerateDocumentHandler(
             // Nothing asked: the caller's data is final as sent, with nothing edited.
             .bind("editedFields", if (form.asks) null else "[]")
             .execute()
+        val link = expiresAt?.let { formLinks.issue(request.id, it) }
         return InteractiveState(
             trigger = interactive.trigger,
-            url = token?.let { formTokens.link(it.token) },
+            url = link?.url,
             expiresAt = expiresAt,
             missingFields = form.missingFields,
             editedFields = if (form.asks) null else emptyList(),
+            urlExpiresAt = link?.expiresAt,
         )
     }
 

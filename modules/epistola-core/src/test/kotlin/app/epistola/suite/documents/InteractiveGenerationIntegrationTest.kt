@@ -8,6 +8,7 @@ import app.epistola.suite.applications.commands.CreateApplication
 import app.epistola.suite.applications.commands.SetApplicationReturnOrigins
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -18,9 +19,11 @@ import app.epistola.suite.documents.commands.CancelGenerationJob
 import app.epistola.suite.documents.commands.CancelInteractiveForm
 import app.epistola.suite.documents.commands.ExpireInteractiveForms
 import app.epistola.suite.documents.commands.GenerateDocument
+import app.epistola.suite.documents.commands.RedeemFormLink
 import app.epistola.suite.documents.commands.SubmitFormOutcome
 import app.epistola.suite.documents.commands.SubmitInteractiveForm
 import app.epistola.suite.documents.interactive.FormOutcome
+import app.epistola.suite.documents.interactive.FormSession
 import app.epistola.suite.documents.interactive.InteractiveGeneration
 import app.epistola.suite.documents.interactive.InteractiveLink
 import app.epistola.suite.documents.interactive.InteractiveTrigger
@@ -59,6 +62,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.time.Duration
+import java.time.ZoneOffset
 import java.util.UUID
 
 /**
@@ -175,8 +179,10 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
 
         assertThat(request.status).isEqualTo(RequestStatus.AWAITING_INPUT)
         val interactive = requireNotNull(request.interactive)
-        assertThat(interactive.url).matches("https://suite\\.test/forms/[A-Za-z0-9_-]{43}")
+        assertThat(interactive.url).startsWith("https://suite.test/forms/${request.id.value}?authCode=")
         assertThat(interactive.expiresAt).isNotNull()
+        // A link opens for minutes (link-lifetime, 15 by default); the request waits a day.
+        assertThat(interactive.urlExpiresAt).isEqualTo(testClock.instant().plus(Duration.ofMinutes(15)).atOffset(ZoneOffset.UTC))
         assertThat(interactive.missingFields.map { it.path to it.required }).contains("/customer/name" to true, "/invoiceDate" to true)
         assertThat(interactive.editedFields).isNull()
     }
@@ -214,13 +220,19 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `the job status hands out the same link while the request waits`() = withReleasedTemplate { setup ->
+    fun `the job status hands out a fresh link on every call, and a listing none`() = withReleasedTemplate { setup ->
         val request = execute(setup.generate("{}", incomplete))
-        val url = requireNotNull(request.interactive?.url)
 
-        assertThat(job(request).interactive?.url).isEqualTo(url)
+        val first = requireNotNull(job(request).interactive?.url)
+        val second = requireNotNull(job(request).interactive?.url)
+
+        assertThat(first).isNotEqualTo(second).isNotEqualTo(request.interactive?.url)
+        // Links handed out earlier keep working until their own expiry: neither revokes the other.
+        assertThat(redeem(first)).isNotNull()
+        assertThat(redeem(second)).isNotNull()
         val listed = query(ListGenerationJobs(setup.tenant.id, status = RequestStatus.AWAITING_INPUT)).single { it.id == request.id }
-        assertThat(listed.interactive?.url).isEqualTo(url)
+        assertThat(listed.interactive?.url).isNull()
+        assertThat(listed.interactive?.expiresAt).isNotNull()
     }
 
     @Test
@@ -317,7 +329,14 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
     // The form: looking it up, submitting, cancelling, expiring
     // ---------------------------------------------------------------------------------------------
 
-    private fun DocumentGenerationRequest.token(): String = requireNotNull(interactive?.url).substringAfterLast('/')
+    /** Opens [url] as the person's browser does: redeems its code into a session on the form. */
+    private fun ThenScope.redeem(url: String): FormSession? {
+        val requestId = GenerationRequestKey.of(UUID.fromString(url.substringAfter("/forms/").substringBefore('?')))
+        return execute(RedeemFormLink(requestId, url.substringAfter("authCode=")))
+    }
+
+    /** A session on [request]'s form, from the link it was accepted with. */
+    private fun ThenScope.sessionOn(request: DocumentGenerationRequest): String = requireNotNull(redeem(requireNotNull(request.interactive?.url))).token
 
     @Test
     fun `the link opens the form with the bound contract, the caller's data and texts`() = withReleasedTemplate { setup ->
@@ -328,7 +347,7 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
             ),
         )
 
-        val form = query(GetInteractiveForm(request.token()))
+        val form = query(GetInteractiveForm(request.id, sessionOn(request)))
 
         assertThat(form).isInstanceOf(InteractiveFormView.Open::class.java)
         form as InteractiveFormView.Open
@@ -341,17 +360,59 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `an unknown or malformed token finds no form`() = withReleasedTemplate { _ ->
-        assertThat(query(GetInteractiveForm("A".repeat(43)))).isNull()
-        assertThat(query(GetInteractiveForm("not-a-token"))).isNull()
-        assertThat(execute(SubmitInteractiveForm("A".repeat(43), json(complete)))).isNull()
+    fun `a link opens the form once`() = withReleasedTemplate { setup ->
+        val url = requireNotNull(execute(setup.generate("{}", incomplete)).interactive?.url)
+
+        assertThat(redeem(url)).isNotNull()
+        assertThat(redeem(url)).`as`("a replayed code").isNull()
+    }
+
+    @Test
+    fun `a forged code, another request's code or an expired one opens nothing`() = withReleasedTemplate { setup ->
+        val request = execute(setup.generate("{}", incomplete))
+        val other = execute(setup.generate("{}", incomplete))
+        val url = requireNotNull(request.interactive?.url)
+        val code = url.substringAfter("authCode=")
+
+        assertThat(execute(RedeemFormLink(request.id, code.dropLast(2) + "AA"))).`as`("a tampered signature").isNull()
+        assertThat(execute(RedeemFormLink(other.id, code))).`as`("another request's code").isNull()
+        assertThat(execute(RedeemFormLink(request.id, "not-a-code"))).isNull()
+
+        testClock.advanceBy(Duration.ofMinutes(16))
+        assertThat(redeem(url)).`as`("a code past its 15 minutes").isNull()
+        assertThat(redeem(requireNotNull(job(request).interactive?.url))).`as`("a fresh link still opens it").isNotNull()
+    }
+
+    @Test
+    fun `a session works only on its own form`() = withReleasedTemplate { setup ->
+        val request = execute(setup.generate("{}", incomplete))
+        val other = execute(setup.generate("{}", incomplete))
+        val session = sessionOn(request)
+
+        assertThat(query(GetInteractiveForm(other.id, session))).isNull()
+        assertThat(execute(SubmitInteractiveForm(other.id, session, json(complete)))).isNull()
+        assertThat(execute(CancelInteractiveForm(other.id, session))).isNull()
+        assertThat(query(GetInteractiveForm(request.id, "forged.session"))).isNull()
+    }
+
+    @Test
+    fun `a session outlives its link while the person keeps working, and ends after an idle hour`() = withReleasedTemplate { setup ->
+        val request = execute(setup.generate("{}", incomplete))
+        val session = sessionOn(request)
+
+        testClock.advanceBy(Duration.ofMinutes(50))
+        val renewed = query(GetInteractiveForm(request.id, session)) as InteractiveFormView.Open
+
+        testClock.advanceBy(Duration.ofMinutes(50))
+        assertThat(query(GetInteractiveForm(request.id, session))).`as`("the first session, 100 idle minutes old").isNull()
+        assertThat(query(GetInteractiveForm(request.id, renewed.session.token))).isInstanceOf(InteractiveFormView.Open::class.java)
     }
 
     @Test
     fun `invalid data is refused on the server and the form stays open`() = withReleasedTemplate { setup ->
         val request = execute(setup.generate("{}", incomplete))
 
-        val outcome = execute(SubmitInteractiveForm(request.token(), json("""{"customer": {"name": "Ada"}}""")))
+        val outcome = execute(SubmitInteractiveForm(request.id, sessionOn(request), json("""{"customer": {"name": "Ada"}}""")))
 
         assertThat(outcome).isInstanceOf(SubmitFormOutcome.Invalid::class.java)
         assertThat((outcome as SubmitFormOutcome.Invalid).analysis.missingFields.map { it.path }).contains("/invoiceDate")
@@ -368,7 +429,8 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
         )
         val submitted = json("""{"customer": {"name": "Ada Lovelace"}, "invoiceDate": "2026-11-19", "note": "kept"}""")
 
-        val outcome = execute(SubmitInteractiveForm(request.token(), submitted))
+        val session = sessionOn(request)
+        val outcome = execute(SubmitInteractiveForm(request.id, session, submitted))
 
         assertThat(outcome).isEqualTo(
             SubmitFormOutcome.Submitted(
@@ -385,14 +447,14 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
         assertThat(interactive.url).isNull()
         assertThat(interactive.editedFields).containsExactly("/customer/name", "/customer/phone", "/invoiceDate")
 
-        val again = execute(SubmitInteractiveForm(request.token(), submitted))
+        val again = execute(SubmitInteractiveForm(request.id, session, submitted))
         assertThat(again).isEqualTo(SubmitFormOutcome.Closed(FormOutcome.SUBMITTED, "https://suite.test/back?tab=letters"))
     }
 
     @Test
     fun `a submitted request renders, and its result carries the data and what was edited`() = withReleasedTemplate { setup ->
         val request = execute(setup.generate("""{"customer": {}}""", incomplete))
-        execute(SubmitInteractiveForm(request.token(), json(complete)))
+        execute(SubmitInteractiveForm(request.id, sessionOn(request), json(complete)))
 
         drainGenerationJobs(setup.tenant.id)
         awaitIdleJobPoller()
@@ -407,28 +469,30 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
     fun `cancelling on the form records the person and delivers a cancelled result`() = withReleasedTemplate { setup ->
         val request = execute(setup.generate("{}", InteractiveGeneration(InteractiveTrigger.INCOMPLETE, returnUrl = "https://suite.test/back")))
 
-        val outcome = execute(CancelInteractiveForm(request.token()))
+        val session = sessionOn(request)
+        val outcome = execute(CancelInteractiveForm(request.id, session))
 
         assertThat(outcome).isEqualTo(
             CancelFormOutcome.Cancelled(request.id, "https://suite.test/back?epistolaRequestId=${request.id.value}&epistolaRequestStatus=cancelled"),
         )
         assertThat(job(request).cancelReason).isEqualTo(CancelReason.USER)
         assertThat(results(request)).containsExactly(ResultLine("CANCELLED", "USER", hasData = false))
-        assertThat(query(GetInteractiveForm(request.token()))).isEqualTo(
+        assertThat(query(GetInteractiveForm(request.id, session))).isEqualTo(
             InteractiveFormView.Closed(request.id, setup.tenant.id, FormOutcome.CANCELLED, "https://suite.test/back"),
         )
     }
 
     @Test
-    fun `an expired link closes the form at once, and the sweep cancels the request`() = withReleasedTemplate { setup ->
-        val request = execute(setup.generate("{}", InteractiveGeneration(InteractiveTrigger.INCOMPLETE, expiresInMinutes = 60)))
+    fun `an expired wait closes the form at once, and the sweep cancels the request`() = withReleasedTemplate { setup ->
+        val request = execute(setup.generate("{}", InteractiveGeneration(InteractiveTrigger.INCOMPLETE, expiresInMinutes = 30)))
+        val session = sessionOn(request)
 
-        testClock.advanceBy(Duration.ofMinutes(61))
+        testClock.advanceBy(Duration.ofMinutes(31))
 
-        assertThat(query(GetInteractiveForm(request.token()))).isEqualTo(
-            InteractiveFormView.Closed(request.id, setup.tenant.id, FormOutcome.EXPIRED, null),
-        )
-        assertThat(execute(SubmitInteractiveForm(request.token(), json(complete)))).isEqualTo(SubmitFormOutcome.Closed(FormOutcome.EXPIRED, null))
+        // A session never outlives the wait, so the person is out, before the sweep has run.
+        assertThat(query(GetInteractiveForm(request.id, session))).isNull()
+        assertThat(execute(SubmitInteractiveForm(request.id, session, json(complete)))).isNull()
+        assertThat(job(request).interactive?.url).`as`("no link for a wait that has ended").isNull()
 
         execute(ExpireInteractiveForms())
 

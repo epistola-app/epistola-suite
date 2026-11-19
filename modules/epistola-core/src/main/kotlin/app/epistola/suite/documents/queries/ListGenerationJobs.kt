@@ -72,6 +72,6 @@ class ListGenerationJobsHandler(
             q.bind("status", query.status.name)
         }
 
-        interactiveStates.attach(handle, q.mapTo<DocumentGenerationRequest>().list())
+        interactiveStates.attach(handle, q.mapTo<DocumentGenerationRequest>().list(), withLinks = false)
     }
 }

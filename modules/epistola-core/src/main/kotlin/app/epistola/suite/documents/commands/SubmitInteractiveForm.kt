@@ -9,6 +9,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.interactive.BoundDataContract
 import app.epistola.suite.documents.interactive.EditedFields
 import app.epistola.suite.documents.interactive.FormOutcome
+import app.epistola.suite.documents.interactive.InteractiveFormLinks
 import app.epistola.suite.documents.interactive.InteractiveForms
 import app.epistola.suite.documents.interactive.ReturnUrls
 import app.epistola.suite.mediator.Command
@@ -40,12 +41,14 @@ sealed interface SubmitFormOutcome {
  * `PENDING` so a worker picks it up like any other. Submitted once: the request row is locked and
  * the move is conditional, so a second submission finds the form closed.
  *
- * [SystemInternal]: the token is the authority, as for [app.epistola.suite.documents.queries.GetInteractiveForm].
+ * Null when [session] is not a live session on [requestId]'s form.
+ *
+ * [SystemInternal]: the session is the authority, as for [app.epistola.suite.documents.queries.GetInteractiveForm].
  */
-data class SubmitInteractiveForm(val token: String, val data: ObjectNode) :
+data class SubmitInteractiveForm(val requestId: GenerationRequestKey, val session: String, val data: ObjectNode) :
     Command<SubmitFormOutcome?>,
     SystemInternal {
-    override fun toString(): String = "SubmitInteractiveForm(token=***)"
+    override fun toString(): String = "SubmitInteractiveForm(requestId=$requestId, session=***)"
 }
 
 @Component
@@ -54,12 +57,14 @@ class SubmitInteractiveFormHandler(
     private val forms: InteractiveForms,
     private val boundContract: BoundDataContract,
     private val objectMapper: ObjectMapper,
+    private val links: InteractiveFormLinks,
 ) : CommandHandler<SubmitInteractiveForm, SubmitFormOutcome?> {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: SubmitInteractiveForm): SubmitFormOutcome? = jdbi.inTransaction<SubmitFormOutcome?, Exception> { handle ->
-        val form = forms.find(handle, command.token, forUpdate = true) ?: return@inTransaction null
+        if (!links.isSession(command.requestId, command.session)) return@inTransaction null
+        val form = forms.find(handle, command.requestId, forUpdate = true) ?: return@inTransaction null
         form.outcome?.let { return@inTransaction SubmitFormOutcome.Closed(it, form.returnUrl) }
         val request = form.request
 

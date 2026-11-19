@@ -69,7 +69,7 @@ class GetGenerationJobHandler(
             .mapTo<DocumentGenerationRequest>()
             .findOne()
             .orElse(null)
-            ?.let { interactiveStates.attach(handle, it) }
+            ?.let { interactiveStates.attach(handle, listOf(it), withLinks = true).single() }
             ?: return@withHandle null
 
         // For API compatibility, return request as both the job and a single-item list

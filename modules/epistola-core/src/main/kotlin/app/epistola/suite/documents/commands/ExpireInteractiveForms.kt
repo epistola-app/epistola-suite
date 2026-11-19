@@ -63,6 +63,10 @@ class ExpireInteractiveFormsHandler(
             .mapTo<DocumentGenerationRequest>()
             .list()
         expired.forEach { emitCancelledIfInteractive(handle, mediator, it, CancelReason.EXPIRED) }
+        // A redeemed link's nonce is only needed until the link would have expired anyway.
+        handle.createUpdate("DELETE FROM generation_form_link_redemptions WHERE expires_at <= :now")
+            .bind("now", EpistolaClock.offsetDateTime())
+            .execute()
         if (expired.isNotEmpty()) log.info("Expired interactive forms count={}", expired.size)
         expired.size
     }

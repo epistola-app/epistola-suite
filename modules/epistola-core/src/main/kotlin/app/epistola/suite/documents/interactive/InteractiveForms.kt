@@ -62,29 +62,31 @@ data class FoundForm(
 }
 
 /**
- * Finds a form by the token in its link. The token is the only authority the form page has
- * (contract ADR 0011, "The URL is a capability"), so the lookup is by its hash and nothing else: no
- * tenant, no principal. A malformed token is not looked up at all.
+ * Finds the form of a request by the request's id, the link's path. The id alone grants nothing: the
+ * commands that use this first check a redeemed link or a session on that request
+ * ([InteractiveFormLinks]), which is the only authority the form page has (contract ADR 0011, "The
+ * URL is a capability"): no tenant, no principal.
  */
 @Component
-class InteractiveForms(private val formTokens: InteractiveFormTokens) {
+class InteractiveForms {
 
-    /** The form for [token], or null when there is none. [forUpdate] locks the request row for a state change. */
-    fun find(handle: Handle, token: String, forUpdate: Boolean = false): FoundForm? {
-        if (!formTokens.isWellFormed(token)) return null
+    /** The form of [requestId], or null when it has none. [forUpdate] locks the request row for a state change. */
+    fun find(handle: Handle, requestId: GenerationRequestKey, forUpdate: Boolean = false): FoundForm? {
         val row = handle.createQuery(
             """
             SELECT request_id, created_at, trigger, expires_at, expires_at <= :now AS expired, return_url, title, instructions,
                    links, locale, missing_fields, caller_data
             FROM generation_request_interactions
-            WHERE token_hash = :hash
+            WHERE request_id = :requestId
             """,
         )
-            .bind("hash", formTokens.hash(token))
+            .bind("requestId", requestId)
             .bind("now", EpistolaClock.offsetDateTime())
             .mapTo<FormRow>()
             .findOne()
-            .orElse(null) ?: return null
+            .orElse(null)
+            // A request that asked nothing has no form to open.
+            ?.takeIf { it.expiresAt != null } ?: return null
         val request = handle.createQuery(
             """
             SELECT $GENERATION_REQUEST_COLUMNS
@@ -101,8 +103,8 @@ class InteractiveForms(private val formTokens: InteractiveFormTokens) {
         return FoundForm(
             request = request,
             trigger = InteractiveTrigger.valueOf(row.trigger),
-            expiresAt = row.expiresAt,
-            expired = row.expired,
+            expiresAt = requireNotNull(row.expiresAt),
+            expired = row.expired == true,
             returnUrl = row.returnUrl,
             title = row.title,
             instructions = row.instructions,
@@ -117,8 +119,8 @@ class InteractiveForms(private val formTokens: InteractiveFormTokens) {
         val requestId: GenerationRequestKey,
         val createdAt: OffsetDateTime,
         val trigger: String,
-        val expiresAt: OffsetDateTime,
-        val expired: Boolean,
+        val expiresAt: OffsetDateTime?,
+        val expired: Boolean?,
         val returnUrl: String?,
         val title: String?,
         val instructions: String?,

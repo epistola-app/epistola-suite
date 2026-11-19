@@ -33,11 +33,6 @@ and only repeats its findings where they shape a step.
 
 - Saving progress on the form ("may" in the ADR). Until then, a reload keeps nothing the person typed.
 - Variant choice (`interactive.variantChoice`), which the ADR itself defers.
-- Short-lived links that `getGenerationJobStatus` refreshes
-  ([epistola-contract#134](https://github.com/epistola-app/epistola-contract/issues/134)). v1
-  implements 2.1.0 as published: one link per job, valid until `interactive.expiresAt`. Keep token
-  handling behind one component (create, look up, hand out again), so that moving to short-lived
-  codes later changes only that component and the page's entry route.
 - Forms that authors configure themselves. v1 generates every form, but is built so that a configured
   form can replace the generated one later without touching the job, the token or the API (decision 8).
 - Exposing an application's allowed origins through the contract's consumer resource. Suite does not
@@ -60,10 +55,14 @@ and only repeats its findings where they shape a step.
    `getGenerationJobStatus` hands out again. Recommendation: a required
    `epistola.generation.interactive.public-base-url`. Without it, the feature cannot be switched on
    and the boot log says why. The demo profile sets it to `http://localhost:4000`.
-3. **Storing the token.** Generate 32 random bytes, encoded base64url. Store a SHA-256 hash, indexed,
-   to look the token up, and the token encrypted with the credential encryption so it can be handed
-   out again while the job waits. Register the column with `EncryptedCredentialContributor` so
-   re-keying covers it.
+3. **Links and sessions** (_changed:_ contract 2.1.1, epistola-contract#134). A link is
+   `/forms/{requestId}?authCode={code}`. The code is signed (HMAC with a random installation key in
+   `app_metadata`) over the request, its expiry (`link-lifetime`, 15 minutes) and a nonce, and works
+   once. Opening it starts a signed session, kept in a cookie scoped to the form, that is renewed on
+   every request until `session-idle-timeout` (60 minutes) or the job's wait ends. Nothing is stored
+   per link, so `getGenerationJobStatus` hands out a fresh link on every call; only a redeemed
+   code's nonce is kept, until the code would have expired. The core commands check the session
+   themselves (`RedeemFormLink`, then `GetInteractiveForm`/`Submit…`/`Cancel…` with the session).
 4. **Where the form state lives.** In a sibling table, `generation_request_interactions`, partitioned
    by `created_at` like `document_generation_requests` and registered in `CorePartitionedTables`.
    Retention then drops both together ("goes with the job"), and the hot table the poller scans does

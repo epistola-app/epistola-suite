@@ -9,12 +9,14 @@ import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.applications.commands.CreateApplication
 import app.epistola.suite.applications.commands.SetApplicationReturnOrigins
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.documents.commands.RedeemFormLink
 import app.epistola.suite.documents.commands.SubmitInteractiveForm
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
@@ -84,7 +86,7 @@ class InteractiveGenerationApiIT : IntegrationTestBase() {
     private data class Caller(val tenant: TenantKey, val key: String)
 
     @Test
-    fun `missing data makes a waiting job whose link the job status hands out again`() {
+    fun `missing data makes a waiting job, and the job status hands out a fresh link to it`() {
         val caller = caller()
 
         val accepted = generate(caller, """{"name": "Jane"}""", """{"trigger": "incomplete", "title": "Letter, case Z-1"}""")
@@ -94,7 +96,7 @@ class InteractiveGenerationApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(body, "$.status")).isEqualTo("awaiting-input")
         assertThat(JsonPath.read<String>(body, "$.interactive.trigger")).isEqualTo("incomplete")
         val url = JsonPath.read<String>(body, "$.interactive.url")
-        assertThat(url).matches("https://suite\\.test/forms/[A-Za-z0-9_-]{43}")
+        assertThat(url).startsWith("https://suite.test/forms/${JsonPath.read<String>(body, "$.requestId")}?authCode=")
         assertThat(JsonPath.read<String?>(body, "$.interactive.expiresAt")).isNotNull()
         assertThat(JsonPath.read<List<String>>(body, "$.interactive.missingFields[*].path")).contains("/motivation")
         assertThat(JsonPath.read<Any?>(body, "$.cancelReason")).isNull()
@@ -102,7 +104,10 @@ class InteractiveGenerationApiIT : IntegrationTestBase() {
         val requestId = JsonPath.read<String>(body, "$.requestId")
         val status = exchange(HttpMethod.GET, "/api/tenants/${caller.tenant.value}/documents/jobs/$requestId", caller.key).body!!
         assertThat(JsonPath.read<String>(status, "$.status")).isEqualTo("awaiting-input")
-        assertThat(JsonPath.read<String>(status, "$.interactive.url")).isEqualTo(url)
+        // A fresh, short-lived link on every call (epistola-contract#134); the listing hands out none.
+        assertThat(JsonPath.read<String>(status, "$.interactive.url")).startsWith("https://suite.test/forms/$requestId?authCode=").isNotEqualTo(url)
+        val listed = exchange(HttpMethod.GET, "/api/tenants/${caller.tenant.value}/documents/jobs", caller.key).body!!
+        assertThat(JsonPath.read<List<Any?>>(listed, "$.items[?(@.requestId == '$requestId')].interactive.url")).containsExactly(null)
 
         val items = exchange(HttpMethod.GET, "/api/tenants/${caller.tenant.value}/documents/jobs/$requestId/items", caller.key).body!!
         assertThat(JsonPath.read<String>(items, "$.items[0].status")).isEqualTo("awaiting-input")
@@ -136,10 +141,14 @@ class InteractiveGenerationApiIT : IntegrationTestBase() {
         val caller = caller()
         val accepted = generate(caller, """{"name": "Jane"}""", """{"trigger": "incomplete"}""").body!!
         val requestId = JsonPath.read<String>(accepted, "$.requestId")
-        val token = JsonPath.read<String>(accepted, "$.interactive.url").substringAfterLast('/')
+        val code = JsonPath.read<String>(accepted, "$.interactive.url").substringAfter("authCode=")
         val submitted = """{"name": "Jane Doe", "motivation": "Because.", "nested": {"note": null}}"""
 
-        withMediator { SubmitInteractiveForm(token, json(submitted)).execute() }
+        withMediator {
+            val id = GenerationRequestKey.of(UUID.fromString(requestId))
+            val session = requireNotNull(RedeemFormLink(id, code).execute())
+            SubmitInteractiveForm(id, session.token, json(submitted)).execute()
+        }
         assertThat(drainGenerationJobs(caller.tenant)).isEqualTo(1)
 
         val items = exchange(HttpMethod.GET, "/api/tenants/${caller.tenant.value}/documents/jobs/$requestId/items", caller.key).body!!
