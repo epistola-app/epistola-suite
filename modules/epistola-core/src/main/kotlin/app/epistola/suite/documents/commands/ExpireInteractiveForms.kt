@@ -37,12 +37,19 @@ class ExpireInteractiveFormsHandler(
     override fun handle(command: ExpireInteractiveForms): Int = jdbi.inTransaction<Int, Exception> { handle ->
         // The application clock decides, as it set the expiry the caller was told and as the form page
         // compares it. SKIP LOCKED leaves a form being submitted right now to that submission.
+        // It starts from the requests that wait (idx_generation_requests_status finds exactly those), so
+        // a sweep costs the number of waiting forms, not every form kept for the retention period.
+        // MATERIALIZED keeps the planner from turning it back into a scan of the form table.
         val expired = handle.createQuery(
             """
-            WITH due AS (
+            WITH waiting AS MATERIALIZED (
+                SELECT id, created_at FROM document_generation_requests WHERE status = 'AWAITING_INPUT'
+            ),
+            due AS (
                 SELECT q.id, q.created_at
-                FROM generation_request_interactions i
-                JOIN document_generation_requests q ON q.id = i.request_id AND q.created_at = i.created_at
+                FROM waiting w
+                JOIN generation_request_interactions i ON i.request_id = w.id AND i.created_at = w.created_at
+                JOIN document_generation_requests q ON q.id = w.id AND q.created_at = w.created_at
                 WHERE q.status = 'AWAITING_INPUT' AND i.expires_at <= :now
                 ORDER BY i.expires_at
                 LIMIT :limit
@@ -55,7 +62,7 @@ class ExpireInteractiveFormsHandler(
             RETURNING r.id, r.batch_id, r.tenant_key, r.catalog_key, r.registry, r.namespace, r.template_key, r.variant_key, r.version_key,
                       r.environment_key, r.release_version, r.draft_id, r.draft_label, r.catalog_version_id, r.recoveries, r.data, r.filename,
                       r.correlation_id, r.routing_key, r.document_key, r.status, r.claimed_by, r.claimed_at, r.error_message, r.created_at,
-                      r.started_at, r.completed_at, r.expires_at, r.cancel_reason, r.submitted_at
+                      r.started_at, r.completed_at, r.expires_at, r.cancel_reason, r.submitted_at, r.has_form
             """,
         )
             .bind("limit", command.limit)

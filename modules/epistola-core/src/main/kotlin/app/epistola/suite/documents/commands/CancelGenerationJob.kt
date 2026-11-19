@@ -136,13 +136,7 @@ private val CANCELLABLE = setOf(RequestStatus.AWAITING_INPUT, RequestStatus.PEND
  * when the cancellation does.
  */
 internal fun emitCancelledIfInteractive(handle: Handle, mediator: Mediator, request: DocumentGenerationRequest, reason: CancelReason) {
-    val interactive = handle.createQuery("SELECT 1 FROM generation_request_interactions WHERE request_id = :id AND created_at = :createdAt")
-        .bind("id", request.id)
-        .bind("createdAt", request.createdAt)
-        .mapTo<Int>()
-        .findOne()
-        .isPresent
-    if (!interactive) return
+    if (!request.hasForm) return
     mediator.send(
         EmitGenerationResult(
             request = request,

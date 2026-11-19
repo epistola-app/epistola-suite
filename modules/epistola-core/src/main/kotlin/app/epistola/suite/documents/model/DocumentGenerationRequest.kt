@@ -105,6 +105,12 @@ data class DocumentGenerationRequest(
     /** When its form was submitted; null for a request that never waited for input. */
     val submittedAt: OffsetDateTime? = null,
     /**
+     * Whether it was created with `interactive`, so it has a form row. Every other request skips the
+     * form table entirely. Defaulted so a SELECT that does not ask for `has_form` still maps; a query
+     * whose caller decides on it must select it.
+     */
+    val hasForm: Boolean = false,
+    /**
      * The form of a request created with `interactive`, when the reading query loaded it; null for a
      * request without one (contract ADR 0011). Never mapped from a column.
      */
@@ -141,5 +147,5 @@ data class DocumentGenerationRequest(
 const val GENERATION_REQUEST_COLUMNS = """
     id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, environment_key,
     release_version, draft_id, draft_label, catalog_version_id, recoveries, data, filename, correlation_id, routing_key, document_key, status,
-    claimed_by, claimed_at, error_message, created_at, started_at, completed_at, expires_at, cancel_reason, submitted_at
+    claimed_by, claimed_at, error_message, created_at, started_at, completed_at, expires_at, cancel_reason, submitted_at, has_form
 """

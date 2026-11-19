@@ -56,7 +56,7 @@ class GetGenerationJobHandler(
             """
             SELECT id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, environment_key, release_version, draft_id, draft_label, catalog_version_id, recoveries,
                    data, filename, correlation_id, routing_key, document_key, status, claimed_by, claimed_at,
-                   error_message, created_at, started_at, completed_at, expires_at, cancel_reason, submitted_at
+                   error_message, created_at, started_at, completed_at, expires_at, cancel_reason, submitted_at, has_form
             FROM document_generation_requests
             WHERE id = :requestId
               AND tenant_key = :tenantId

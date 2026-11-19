@@ -502,7 +502,8 @@ class JobPoller(
                           document_generation_requests.submitted_at,
                           document_generation_requests.started_at,
                           document_generation_requests.completed_at,
-                          document_generation_requests.expires_at
+                          document_generation_requests.expires_at,
+                          document_generation_requests.has_form
                 """,
         )
             .bind("batchSize", batchSize)

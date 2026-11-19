@@ -5,7 +5,6 @@
 package app.epistola.suite.documents.interactive
 
 import app.epistola.generation.pdf.PdfMetadata
-import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.generation.DocumentPreviewRenderer
 import app.epistola.suite.generation.DraftDocumentRenderer
@@ -20,14 +19,10 @@ import app.epistola.suite.security.SystemUser
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.TenantNotFoundException
 import app.epistola.suite.tenants.queries.GetTenant
-import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayOutputStream
-import java.time.Duration
-import java.util.concurrent.Semaphore
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Renders the preview on a form (contract ADR 0011: "the renderer, so the form can preview"): the
@@ -35,9 +30,9 @@ import java.util.concurrent.atomic.AtomicInteger
  * the data on the form and the preview watermark, exactly as a worker would render it after
  * submission. Nothing in the call chooses a template, release or variant.
  *
- * It is the renderer on a page reachable without signing in, so each form is limited, per node:
- * one preview at a time, and [PREVIEWS_PER_MINUTE] a minute. The counters are held in bounded
- * caches, so forms nobody previews any more cost nothing.
+ * It is the renderer on a page reachable without signing in, so it is limited per node by
+ * [PreviewLimits]: each form one preview at a time and [PREVIEWS_PER_MINUTE] a minute, all forms
+ * together `epistola.generation.interactive.preview-concurrency` at once.
  */
 @Component
 class InteractiveFormPreview(
@@ -48,22 +43,13 @@ class InteractiveFormPreview(
     private val localeResolver: TenantLocaleResolver,
     private val objectMapper: ObjectMapper,
     private val mediator: Mediator,
+    properties: InteractiveGenerationProperties,
 ) {
-    private val inFlight = Caffeine.newBuilder().maximumSize(MAX_TRACKED_FORMS).expireAfterAccess(Duration.ofMinutes(10))
-        .build<GenerationRequestKey, Semaphore>()
-    private val perMinute = Caffeine.newBuilder().maximumSize(MAX_TRACKED_FORMS).expireAfterWrite(Duration.ofMinutes(1))
-        .build<GenerationRequestKey, AtomicInteger>()
+    private val limits = PreviewLimits(PREVIEWS_PER_MINUTE, properties.previewConcurrency)
 
-    /** The PDF, or null when this form is over its limits. */
-    fun render(request: DocumentGenerationRequest, data: ObjectNode): ByteArray? {
-        if (perMinute.get(request.id) { AtomicInteger() }.incrementAndGet() > PREVIEWS_PER_MINUTE) return null
-        val gate = inFlight.get(request.id) { Semaphore(1) }
-        if (!gate.tryAcquire()) return null
-        try {
-            return SecurityContext.runWithPrincipal(SystemUser.principalForTenant(request.tenantKey)) { renderNow(request, data) }
-        } finally {
-            gate.release()
-        }
+    /** The PDF, or null when this form, or the node, is over its preview limits. */
+    fun render(request: DocumentGenerationRequest, data: ObjectNode): ByteArray? = limits.withinLimits(request.id) {
+        SecurityContext.runWithPrincipal(SystemUser.principalForTenant(request.tenantKey)) { renderNow(request, data) }
     }
 
     private fun renderNow(request: DocumentGenerationRequest, data: ObjectNode): ByteArray {
@@ -92,6 +78,5 @@ class InteractiveFormPreview(
 
     companion object {
         const val PREVIEWS_PER_MINUTE = 20
-        private const val MAX_TRACKED_FORMS = 10_000L
     }
 }

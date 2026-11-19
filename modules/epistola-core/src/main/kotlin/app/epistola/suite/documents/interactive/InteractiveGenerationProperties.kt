@@ -26,6 +26,9 @@ import java.time.Duration
  *   application (a bearer token, the demo secret) may name as `returnUrl` or link. A caller with an
  *   application is held to that application's own list. This installation's own origin is always
  *   allowed.
+ * @property previewConcurrency How many form previews this node renders at once, over all forms. A
+ *   preview renders on the request thread, outside the job queue, so beyond this a preview is
+ *   refused with 429 rather than competing with the queue's renders.
  */
 @ConfigurationProperties(prefix = "epistola.generation.interactive")
 data class InteractiveGenerationProperties(
@@ -35,6 +38,7 @@ data class InteractiveGenerationProperties(
     val linkLifetime: Duration = Duration.ofMinutes(15),
     val sessionIdleTimeout: Duration = Duration.ofMinutes(60),
     val allowedOrigins: List<String> = emptyList(),
+    val previewConcurrency: Int = 4,
 ) {
     init {
         require(!maxExpiry.isNegative && maxExpiry.toMinutes() in 1..InteractiveGeneration.CONTRACT_MAX_EXPIRY_MINUTES.toLong()) {
@@ -45,6 +49,7 @@ data class InteractiveGenerationProperties(
         }
         require(linkLifetime.toSeconds() in 60..3600) { "epistola.generation.interactive.link-lifetime must be between 1 minute and 1 hour" }
         require(sessionIdleTimeout.toMinutes() in 5..1440) { "epistola.generation.interactive.session-idle-timeout must be between 5 minutes and 24 hours" }
+        require(previewConcurrency in 1..256) { "epistola.generation.interactive.preview-concurrency must be between 1 and 256" }
         publicBaseUrl?.let {
             require(Origins.of(it) != null) { "epistola.generation.interactive.public-base-url must be an absolute http(s) URL" }
         }

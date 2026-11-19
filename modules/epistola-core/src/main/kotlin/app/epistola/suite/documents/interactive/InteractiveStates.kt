@@ -25,7 +25,9 @@ import java.util.UUID
 class InteractiveStates(private val formLinks: InteractiveFormLinks) {
 
     fun attach(handle: Handle, requests: List<DocumentGenerationRequest>, withLinks: Boolean): List<DocumentGenerationRequest> {
-        if (requests.isEmpty()) return requests
+        // A request without a form costs no lookup: by request id it would probe every partition.
+        val withForm = requests.filter { it.hasForm }
+        if (withForm.isEmpty()) return requests
         val rows = handle.createQuery(
             """
             SELECT request_id, trigger, expires_at, missing_fields, edited_fields
@@ -33,7 +35,7 @@ class InteractiveStates(private val formLinks: InteractiveFormLinks) {
             WHERE request_id = ANY(:ids)
             """,
         )
-            .bindArray("ids", UUID::class.java, *requests.map { it.id.value }.toTypedArray())
+            .bindArray("ids", UUID::class.java, *withForm.map { it.id.value }.toTypedArray())
             .mapTo<InteractionRow>()
             .associateBy { it.requestId }
         return requests.map { request ->

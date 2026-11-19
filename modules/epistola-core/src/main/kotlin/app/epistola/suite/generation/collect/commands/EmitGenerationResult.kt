@@ -81,8 +81,14 @@ class EmitGenerationResultHandler(
         val inserted = jdbi.withHandle<GenerationResultRow, Exception> { handle ->
             // Before the INSERT draws its sequence, so a poll knows to wait for this emit.
             EmitsInFlight.enter(handle, req.tenantKey)
+            // The request is read once. Its form row is read only for a request that has one: looked up
+            // by request id alone it would probe every partition, for every document emitted.
             handle.createQuery(
                 """
+                WITH q AS (
+                    SELECT catalog_version_id, application_id, has_form, created_at, data
+                    FROM document_generation_requests WHERE id = :requestId
+                )
                 INSERT INTO generation_results (
                     partition, request_id, batch_id, tenant_key, routing_key, status,
                     document_id, correlation_id, template_id, variant_id, version_id, release_version, draft_id, draft_label,
@@ -93,12 +99,16 @@ class EmitGenerationResultHandler(
                     :partition, :requestId, :batchId, :tenantKey, :routingKey, :status,
                     :documentId, :correlationId, :templateId, :variantId, :versionId, :releaseVersion, :draftId, :draftLabel,
                     :registry, :namespace, :catalogKey,
-                    (SELECT catalog_version_id FROM document_generation_requests WHERE id = :requestId), :filename, :contentType, :sizeBytes, :error, :completedAt,
-                    (SELECT application_id FROM document_generation_requests WHERE id = :requestId),
+                    (SELECT catalog_version_id FROM q), :filename, :contentType, :sizeBytes, :error, :completedAt,
+                    (SELECT application_id FROM q),
                     :cancelReason,
-                    (SELECT q.data FROM document_generation_requests q JOIN generation_request_interactions i ON i.request_id = q.id AND i.created_at = q.created_at
-                     WHERE q.id = :requestId AND i.edited_fields IS NOT NULL AND :status <> 'CANCELLED'),
-                    (SELECT i.edited_fields FROM generation_request_interactions i WHERE i.request_id = :requestId AND :status <> 'CANCELLED')
+                    CASE WHEN (SELECT has_form FROM q) AND :status <> 'CANCELLED' THEN
+                        (SELECT q.data FROM q JOIN generation_request_interactions i ON i.request_id = :requestId AND i.created_at = q.created_at
+                         WHERE i.edited_fields IS NOT NULL)
+                    END,
+                    CASE WHEN (SELECT has_form FROM q) AND :status <> 'CANCELLED' THEN
+                        (SELECT i.edited_fields FROM q JOIN generation_request_interactions i ON i.request_id = :requestId AND i.created_at = q.created_at)
+                    END
                 )
                 RETURNING sequence, partition, created_at, request_id, batch_id, tenant_key,
                           routing_key, status, document_id, correlation_id, template_id,

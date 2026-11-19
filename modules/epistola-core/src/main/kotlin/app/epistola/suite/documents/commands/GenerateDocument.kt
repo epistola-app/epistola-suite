@@ -149,7 +149,7 @@ class GenerateDocumentHandler(
                 INSERT INTO document_generation_requests (
                     id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key,
                     environment_key, release_version, draft_id, draft_label, catalog_version_id, template_resource_id, data, filename, correlation_id, routing_key, document_key, status,
-                    application_id
+                    application_id, has_form
                 )
                 VALUES (:id, NULL, :tenantId, :catalogKey,
                         (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey)),
@@ -159,10 +159,10 @@ class GenerateDocumentHandler(
                         COALESCE(:draftId, (SELECT r.version_key FROM catalog_versions r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
                          WHERE r.state = 'released' AND c.tenant_key = :tenantId AND c.catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey) AND r.version = :releaseVersion)),
                         :templateResourceId, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status,
-                        :applicationId)
+                        :applicationId, :hasForm)
                 RETURNING id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, environment_key,
                           release_version, draft_id, draft_label, catalog_version_id, data, filename, correlation_id, routing_key, document_key, status, claimed_by,
-                          claimed_at, error_message, created_at, started_at, completed_at, expires_at
+                          claimed_at, error_message, created_at, started_at, completed_at, expires_at, has_form
                 """,
             )
                 .bind("id", requestId)
@@ -182,6 +182,7 @@ class GenerateDocumentHandler(
                 .bind("status", (if (form?.asks == true) RequestStatus.AWAITING_INPUT else RequestStatus.PENDING).name)
                 // From the credential, never the request body (ADR 0054).
                 .bind("applicationId", application?.value)
+                .bind("hasForm", form != null)
                 .mapTo<DocumentGenerationRequest>()
                 .one()
 

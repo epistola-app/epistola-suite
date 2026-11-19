@@ -457,6 +457,10 @@ that created the generation request authenticated them and handed them a link.
   `Referrer-Policy: no-referrer`, `Cache-Control: no-store` and the UI's content security policy.
 - The editor's static bundles (`/editor/**`) are reachable without signing in, because the form page
   loads one. They are code, not data.
+- **The preview is the renderer, reachable without signing in**, so it is bounded per node: each
+  form one preview at a time and 20 a minute, all forms together `preview-concurrency` (4) at once.
+  Beyond that the form gets 429 with `Retry-After`. Previews render on the request thread, outside
+  the job queue, so this bound is what keeps them from crowding out the queue's renders.
 
 ## Session Management
 

@@ -22,11 +22,13 @@ ALTER TABLE document_generation_requests
         CHECK (status IN ('AWAITING_INPUT', 'PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'CANCELLED')),
     ADD COLUMN cancel_reason VARCHAR(16)
         CONSTRAINT chk_requests_cancel_reason CHECK (cancel_reason IN ('CALLER', 'USER', 'EXPIRED')),
-    ADD COLUMN submitted_at TIMESTAMPTZ;
+    ADD COLUMN submitted_at TIMESTAMPTZ,
+    ADD COLUMN has_form BOOLEAN NOT NULL DEFAULT FALSE;
 
 COMMENT ON COLUMN document_generation_requests.status IS 'Job state: (AWAITING_INPUT ->) PENDING -> IN_PROGRESS -> COMPLETED/FAILED/CANCELLED';
 COMMENT ON COLUMN document_generation_requests.cancel_reason IS 'Why a CANCELLED request was cancelled: CALLER (cancelGenerationJob), USER (on the form) or EXPIRED (the form was not submitted in time). NULL otherwise, and for requests cancelled before interactive generation existed.';
 COMMENT ON COLUMN document_generation_requests.submitted_at IS 'When the person submitted the request''s form, moving it from AWAITING_INPUT to PENDING. NULL for requests that never waited.';
+COMMENT ON COLUMN document_generation_requests.has_form IS 'Whether the request was created with interactive and so has a row in generation_request_interactions. Lets every other request skip that table (its lookups by request id probe every partition).';
 
 -- ---------------------------------------------------------------------------------------------
 -- The form of a request created with `interactive`.
