@@ -127,7 +127,8 @@ compatibility as `RollbackCompatibilityDeclarationTest` requires.
   (scheme, host, optional port), with no path, and is normalised when saved. Matching is an exact
   origin comparison, never a prefix or a wildcard.
 
-Applications: `CreateApplication` and `UpdateApplication` take the origins, validated as origins.
+Applications: _built as_ a separate `SetApplicationReturnOrigins` command, so the existing edit form
+does not have to submit the origins; each entry is validated as an origin.
 The application page in the UI gets an editable list, under the same permission that edits the
 application.
 
@@ -165,12 +166,15 @@ Code changes:
   `GetGenerationJob`, `ListGenerationJobs` and the item queries carry the interaction state.
   `url` is decrypted only while the job is waiting.
 - `EmitGenerationResult` permits `CANCELLED` (no document and no error, but a `cancelReason`). The
-  NDJSON map adds `cancelReason`, `data` and `editedFields`. Join `data` from the request when the
-  line is fetched, so it is not stored twice.
+  NDJSON map adds `cancelReason`, `data` and `editedFields`. _Built:_ the emit copies `data` and
+  `editedFields` onto the result row, so the collect poll needs no join across two partitioned
+  tables. Results have the shorter retention, which fits "for as long as the result is kept".
 - Expiry sweep: a `ClusterScheduledTaskHandler` (the pattern `StaleJobRecovery` uses, but scoped to
   one node). It runs every minute: `UPDATE … SET status='CANCELLED', cancel_reason='EXPIRED'
-  WHERE status='AWAITING_INPUT' AND expires_at < NOW() RETURNING …`, then emits `cancelled` lines.
-  Use database `NOW()`, because it is a database-owned comparison.
+  WHERE status='AWAITING_INPUT' AND expires_at <= :now RETURNING …`, then emits `cancelled` lines.
+  _Built:_ the expiry is application time (`EpistolaClock`). It sets the `expiresAt` the caller is
+  told, and both the form page and the sweep compare with it, so a form closes the moment its link
+  expires even before the sweep runs, and tests can move the clock.
 - Queue wait: `epistola.generation.queue.wait` measures from `COALESCE(submitted_at, created_at)`.
   Claim order stays `created_at`. A submitted form going to the front of the queue is harmless, so
   document it rather than change it.
