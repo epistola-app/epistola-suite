@@ -33,6 +33,11 @@ and only repeats its findings where they shape a step.
 
 - Saving progress on the form ("may" in the ADR). Until then, a reload keeps nothing the person typed.
 - Variant choice (`interactive.variantChoice`), which the ADR itself defers.
+- Short-lived links that `getGenerationJobStatus` refreshes
+  ([epistola-contract#134](https://github.com/epistola-app/epistola-contract/issues/134)). v1
+  implements 2.1.0 as published: one link per job, valid until `interactive.expiresAt`. Keep token
+  handling behind one component (create, look up, hand out again), so that moving to short-lived
+  codes later changes only that component and the page's entry route.
 - Forms that authors configure themselves. v1 generates every form, but is built so that a configured
   form can replace the generated one later without touching the job, the token or the API (decision 8).
 - Exposing an application's allowed origins through the contract's consumer resource. Suite does not
