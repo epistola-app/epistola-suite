@@ -22,7 +22,9 @@ and only repeats its findings where they shape a step.
   `cancelled` collect line.
 - The public form page: derived from the bound release's data contract, pre-filled, validated on the
   server, submitted once, cancellable, with `returnUrl` and the prefixed return parameters.
-- An expiry sweep, a default and maximum expiry, and an allowlist of return/link origins.
+- A PDF preview on the form, authorised by the same token (step 4).
+- An expiry sweep, a default and maximum expiry, and allowed return/link origins kept per
+  application (step 2).
 - **Try it from the UI**: start an interactive job from the template page against an environment,
   open the form in a new tab, and watch the job in generation history.
 - A per-tenant alpha feature toggle.
@@ -30,10 +32,9 @@ and only repeats its findings where they shape a step.
 **Deferred (the ADR allows each to come later)**
 
 - Saving progress on the form ("may" in the ADR). Until then, a reload keeps nothing the person typed.
-- A PDF preview on the form. It is useful, but it puts the renderer on the public surface. Add it in
-  a follow-up once the token surface has been reviewed.
 - Variant choice (`interactive.variantChoice`), which the ADR itself defers.
-- An origin allowlist per application. v1 uses one installation-wide setting, as the ADR proposes.
+- Exposing an application's allowed origins through the contract's consumer resource. Suite does not
+  implement that resource yet.
 
 **Surfaces**
 
@@ -42,7 +43,7 @@ and only repeats its findings where they shape a step.
 - MCP: left out on purpose. MCP may preview documents but never generate them, and an interactive job
   is a generation.
 
-## Decisions to confirm before building
+## Decisions (confirmed 2026-11-19)
 
 1. **Feature toggle.** `KnownFeatures.INTERACTIVE_GENERATION`, ALPHA, off by default. While it is off,
    Suite ignores `interactive` exactly as a pre-2.1 server would: no echo, an ordinary `pending` job.
@@ -60,6 +61,16 @@ and only repeats its findings where they shape a step.
    by `created_at` like `document_generation_requests` and registered in `CorePartitionedTables`.
    Retention then drops both together ("goes with the job"), and the hot table the poller scans does
    not grow wide columns of personal text.
+5. **Expiry.** Default 24h, installation maximum 7d, with the boot check on retention (step 2).
+6. **Preview on the form, by the token.** The token already lets its holder see the pre-filled data,
+   so a PDF of that data against the same release grants nothing new. It is limited to the job's
+   bound release (or live draft) and variant, works only while the job is `awaiting-input`, and is
+   rate-limited (step 4).
+7. **Allowed return origins belong to the application** (ADR 0054). The job records the application
+   from the credential, never from the body. Where a redirect may go describes the calling system,
+   meaning where its frontend lives, so a leaked key can only send a browser back to its own system.
+   The installation setting stays only for callers without an application (bearer tokens and the demo
+   secret, until ADR 0054 step 2 gives them one). Suite's own origin is always allowed.
 
 ## Steps
 
@@ -87,6 +98,13 @@ compatibility as `RollbackCompatibilityDeclarationTest` requires.
   missing_fields jsonb, caller_data jsonb, edited_fields jsonb, submitted_at)`, partitioned by
   `created_at`, with an index on `token_hash` and a partial index on `expires_at` for waiting rows.
 - `generation_results`: widen the status check with `CANCELLED`, and add `cancel_reason`.
+- `applications.allowed_return_origins TEXT[] NOT NULL DEFAULT '{}'`. Each entry is an origin only
+  (scheme, host, optional port), with no path, and is normalised when saved. Matching is an exact
+  origin comparison, never a prefix or a wildcard.
+
+Applications: `CreateApplication` and `UpdateApplication` take the origins, validated as origins.
+The application page in the UI gets an editable list, under the same permission that edits the
+application.
 
 Code changes:
 
@@ -101,8 +119,10 @@ Code changes:
     example fallback and its `TEMPLATE_VIEW` permission. The job path needs only `DOCUMENT_GENERATE`.
   - It decides the status: `AWAITING_INPUT` for `always`, or for `incomplete` with missing or invalid
     fields. Otherwise `PENDING`.
-  - It validates the expiry against the configured maximum (`maximum`) and every URL against the
-    allowlist (`url-not-allowed`), and throws a `ValidationException` carrying those codes.
+  - It validates the expiry against the configured maximum (`maximum`). It checks `returnUrl` and
+    every link against the allowed origins (`url-not-allowed`): those of the submitting application,
+    or the installation's when there is no application, plus Suite's own. It throws a
+    `ValidationException` carrying those codes.
   - It inserts the interaction row, including `caller_data` = the data as sent.
   - It returns a named result (`GenerationAccepted` with the request and an `InteractiveState?`), not
     a pair.
@@ -131,8 +151,8 @@ Code changes:
   document it rather than change it.
 - Configuration (`InteractiveGenerationProperties`, `epistola.generation.interactive.*`):
   `public-base-url`, `default-expiry` (24h), `max-expiry` (7d, never above the contract's 30 days,
-  checked at boot), and `allowed-origins`. Suite's own public origin is always allowed, which the
-  "try it" flow needs. At boot, refuse a partition retention shorter than `max-expiry` plus one
+  checked at boot), and `allowed-origins`, which applies only to callers without an application.
+  Suite's own public origin is always allowed, which the "try it" flow needs. At boot, refuse a partition retention shorter than `max-expiry` plus one
   partition month, so a waiting job's partition cannot be dropped under it.
 
 Tests, at the core integration tier and seeded through commands:
@@ -192,9 +212,34 @@ messages for each path. On success it redirects to `returnUrl` with `epistolaReq
 keeping the fragment. Without a `returnUrl` it shows a "document on its way" page, or a "cancelled"
 page.
 
-**Tests.** Handler tests for each state and for the headers. A `UiTest` that opens the link, fills in
-a missing field, submits, and lands on the return URL. A guard test that `/forms/**` is reachable
-without a session and that nothing else newly is.
+**Preview.** `POST /forms/{token}/preview` with the form's current data returns a PDF, shown in a
+pane beside the fields.
+
+- The handler loads the job by its token and renders the job's own target: its bound release or live
+  draft, its variant, and the tenant's theme, through the existing preview renderer. Nothing in the
+  request chooses a template, release or variant: the body is data only.
+- Data that does not validate is not rendered. The pane lists what is still missing instead, the way
+  `previewDocument` refuses invalid data, so the preview is always what submitting would produce.
+  Rendering incomplete data leniently can come later if authors ask for it.
+- Limits, because this is the renderer on a public route:
+  - one preview at a time per token;
+  - a per-token rate limit held in a bounded Caffeine cache;
+  - a request body limit;
+  - the renderer's existing timeout.
+    Over a limit, the answer is 429, and the pane says to try again.
+- Each preview is counted in a metric. It is not a document: no row, no result, no usage record.
+- The PDF is served with `Content-Disposition: inline`, `no-store`, and a CSP that forbids framing
+  except by the form's own page.
+
+**Tests.** Handler tests for each state and for the headers. Preview tests:
+
+- a waiting job renders;
+- a submitted, cancelled or unknown token is refused;
+- invalid data returns the missing fields;
+- the rate limit answers 429;
+- a body naming another template changes nothing. A `UiTest` that opens the link, fills in
+  a missing field, submits, and lands on the return URL. A guard test that `/forms/**` is reachable
+  without a session and that nothing else newly is.
 
 ### 5. Try it from the UI (apps/epistola)
 
@@ -231,14 +276,14 @@ environment": an environment that follows a draft binds the draft, as generation
 
 ## Risks and how v1 handles them
 
-| Risk                                          | Handling                                                                                                                      |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| A public surface on Suite                     | Separate filter chain, token-only, neutral errors, no preview in v1. Ask for a security review before the toggle leaves alpha |
-| Open redirect through `returnUrl` or links    | Installation allowlist, refused with `url-not-allowed`. Own origin only by default                                            |
-| A waiting job outlives its partition          | Boot check on retention against `max-expiry`                                                                                  |
-| Dashboards assume every job heads to a worker | `awaiting-input` excluded from in-flight and queue metrics. Generation statistics reviewed                                    |
-| A double submission from two tabs             | A conditional `UPDATE` on status. The loser sees the outcome                                                                  |
-| The token leaks through Referer or logs       | `no-referrer`, the token never logged, the URL only in the page and the API response                                          |
+| Risk                                          | Handling                                                                                                                                                        |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A public surface on Suite                     | Separate filter chain, token-only, neutral errors. Preview bound to the job's target and rate-limited. Ask for a security review before the toggle leaves alpha |
+| Open redirect through `returnUrl` or links    | Origins per application (installation list only for callers without one), refused with `url-not-allowed`                                                        |
+| A waiting job outlives its partition          | Boot check on retention against `max-expiry`                                                                                                                    |
+| Dashboards assume every job heads to a worker | `awaiting-input` excluded from in-flight and queue metrics. Generation statistics reviewed                                                                      |
+| A double submission from two tabs             | A conditional `UPDATE` on status. The loser sees the outcome                                                                                                    |
+| The token leaks through Referer or logs       | `no-referrer`, the token never logged, the URL only in the page and the API response                                                                            |
 
 ## Order and size
 
