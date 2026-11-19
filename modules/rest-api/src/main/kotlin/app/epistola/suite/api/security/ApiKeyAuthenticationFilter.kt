@@ -146,7 +146,7 @@ class ApiKeyAuthenticationFilter(
             return
         }
 
-        // Update last used timestamp asynchronously (best-effort)
+        // Record the key's use (best-effort; written at most once a minute, see RecordApiKeyUsage)
         try {
             RecordApiKeyUsage(apiKey.id).execute()
         } catch (e: Exception) {
