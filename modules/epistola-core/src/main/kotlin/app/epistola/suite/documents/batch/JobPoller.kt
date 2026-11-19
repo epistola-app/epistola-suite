@@ -420,10 +420,12 @@ class JobPoller(
      * Records how long [request] waited in PENDING before this node claimed it
      * (created_at → claimed_at), from the in-memory row — no DB query. Together with
      * `epistola.jobs.duration` this attributes end-to-end time to waiting vs generating.
+     * A request that waited for a person to complete its form entered PENDING when the form was
+     * submitted (`submitted_at`), so its wait is measured from there, not from a week ago.
      */
     private fun recordQueueWait(request: DocumentGenerationRequest) {
         val claimedAt = request.claimedAt ?: return
-        val wait = Duration.between(request.createdAt, claimedAt)
+        val wait = Duration.between(request.submittedAt ?: request.createdAt, claimedAt)
         if (!wait.isNegative) queueWaitTimer.record(wait)
     }
 
@@ -497,6 +499,7 @@ class JobPoller(
                           document_generation_requests.claimed_at,
                           document_generation_requests.error_message,
                           document_generation_requests.created_at,
+                          document_generation_requests.submitted_at,
                           document_generation_requests.started_at,
                           document_generation_requests.completed_at,
                           document_generation_requests.expires_at

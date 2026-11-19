@@ -9,8 +9,14 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.documents.commands.CancelFormOutcome
 import app.epistola.suite.documents.commands.CancelGenerationJob
+import app.epistola.suite.documents.commands.CancelInteractiveForm
+import app.epistola.suite.documents.commands.ExpireInteractiveForms
 import app.epistola.suite.documents.commands.GenerateDocument
+import app.epistola.suite.documents.commands.SubmitFormOutcome
+import app.epistola.suite.documents.commands.SubmitInteractiveForm
+import app.epistola.suite.documents.interactive.FormOutcome
 import app.epistola.suite.documents.interactive.InteractiveGeneration
 import app.epistola.suite.documents.interactive.InteractiveLink
 import app.epistola.suite.documents.interactive.InteractiveTrigger
@@ -18,6 +24,8 @@ import app.epistola.suite.documents.model.CancelReason
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.GetGenerationJob
+import app.epistola.suite.documents.queries.GetInteractiveForm
+import app.epistola.suite.documents.queries.InteractiveFormView
 import app.epistola.suite.documents.queries.ListGenerationJobs
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
@@ -42,6 +50,7 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+import java.time.Duration
 
 /**
  * Interactive generation (contract ADR 0011) at acceptance: whether a request waits for input, what
@@ -271,7 +280,149 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
         assertThat(results(request)).isEmpty()
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // The form: looking it up, submitting, cancelling, expiring
+    // ---------------------------------------------------------------------------------------------
+
+    private fun DocumentGenerationRequest.token(): String = requireNotNull(interactive?.url).substringAfterLast('/')
+
+    @Test
+    fun `the link opens the form with the bound contract, the caller's data and texts`() = withReleasedTemplate { setup ->
+        val request = execute(
+            setup.generate(
+                """{"customer": {"phone": "555"}}""",
+                InteractiveGeneration(InteractiveTrigger.INCOMPLETE, title = "Invoice, case Z-1", instructions = "Fill in the date.\nCheck the name."),
+            ),
+        )
+
+        val form = query(GetInteractiveForm(request.token()))
+
+        assertThat(form).isInstanceOf(InteractiveFormView.Open::class.java)
+        form as InteractiveFormView.Open
+        assertThat(form.requestId).isEqualTo(request.id)
+        assertThat(form.title).isEqualTo("Invoice, case Z-1")
+        assertThat(form.instructions).isEqualTo("Fill in the date.\nCheck the name.")
+        assertThat(form.data).isEqualTo(json("""{"customer": {"phone": "555"}}"""))
+        assertThat(form.dataModel!!.get("required").values().map { it.asString() }).containsExactly("customer", "invoiceDate")
+        assertThat(form.analysis.valid).isFalse()
+    }
+
+    @Test
+    fun `an unknown or malformed token finds no form`() = withReleasedTemplate { _ ->
+        assertThat(query(GetInteractiveForm("A".repeat(43)))).isNull()
+        assertThat(query(GetInteractiveForm("not-a-token"))).isNull()
+        assertThat(execute(SubmitInteractiveForm("A".repeat(43), json(complete)))).isNull()
+    }
+
+    @Test
+    fun `invalid data is refused on the server and the form stays open`() = withReleasedTemplate { setup ->
+        val request = execute(setup.generate("{}", incomplete))
+
+        val outcome = execute(SubmitInteractiveForm(request.token(), json("""{"customer": {"name": "Ada"}}""")))
+
+        assertThat(outcome).isInstanceOf(SubmitFormOutcome.Invalid::class.java)
+        assertThat((outcome as SubmitFormOutcome.Invalid).analysis.missingFields.map { it.path }).contains("/invoiceDate")
+        assertThat(job(request).status).isEqualTo(RequestStatus.AWAITING_INPUT)
+    }
+
+    @Test
+    fun `submitting stores the data, records what the person changed and makes the request pending, once`() = withReleasedTemplate { setup ->
+        val request = execute(
+            setup.generate(
+                """{"customer": {"name": "Ada", "phone": "555"}, "note": "kept"}""",
+                InteractiveGeneration(InteractiveTrigger.ALWAYS, returnUrl = "https://suite.test/back?tab=letters"),
+            ),
+        )
+        val submitted = json("""{"customer": {"name": "Ada Lovelace"}, "invoiceDate": "2026-11-19", "note": "kept"}""")
+
+        val outcome = execute(SubmitInteractiveForm(request.token(), submitted))
+
+        assertThat(outcome).isEqualTo(
+            SubmitFormOutcome.Submitted(
+                request.id,
+                setup.tenant.id,
+                "https://suite.test/back?tab=letters&epistolaRequestId=${request.id.value}&epistolaRequestStatus=pending",
+            ),
+        )
+        val pending = job(request)
+        assertThat(pending.status).isIn(RequestStatus.PENDING, RequestStatus.IN_PROGRESS, RequestStatus.COMPLETED)
+        assertThat(pending.data).isEqualTo(submitted)
+        assertThat(pending.submittedAt).isNotNull()
+        val interactive = requireNotNull(pending.interactive)
+        assertThat(interactive.url).isNull()
+        assertThat(interactive.editedFields).containsExactly("/customer/name", "/customer/phone", "/invoiceDate")
+
+        val again = execute(SubmitInteractiveForm(request.token(), submitted))
+        assertThat(again).isEqualTo(SubmitFormOutcome.Closed(FormOutcome.SUBMITTED, "https://suite.test/back?tab=letters"))
+    }
+
+    @Test
+    fun `a submitted request renders, and its result carries the data and what was edited`() = withReleasedTemplate { setup ->
+        val request = execute(setup.generate("""{"customer": {}}""", incomplete))
+        execute(SubmitInteractiveForm(request.token(), json(complete)))
+
+        drainGenerationJobs(setup.tenant.id)
+        awaitIdleJobPoller()
+
+        assertThat(job(request).status).isEqualTo(RequestStatus.COMPLETED)
+        val line = results(request).single()
+        assertThat(line).isEqualTo(ResultLine("COMPLETED", null, hasData = true))
+        assertThat(resultEditedFields(request)).containsExactly("/customer/name", "/invoiceDate")
+    }
+
+    @Test
+    fun `cancelling on the form records the person and delivers a cancelled result`() = withReleasedTemplate { setup ->
+        val request = execute(setup.generate("{}", InteractiveGeneration(InteractiveTrigger.INCOMPLETE, returnUrl = "https://suite.test/back")))
+
+        val outcome = execute(CancelInteractiveForm(request.token()))
+
+        assertThat(outcome).isEqualTo(
+            CancelFormOutcome.Cancelled(request.id, "https://suite.test/back?epistolaRequestId=${request.id.value}&epistolaRequestStatus=cancelled"),
+        )
+        assertThat(job(request).cancelReason).isEqualTo(CancelReason.USER)
+        assertThat(results(request)).containsExactly(ResultLine("CANCELLED", "USER", hasData = false))
+        assertThat(query(GetInteractiveForm(request.token()))).isEqualTo(
+            InteractiveFormView.Closed(request.id, setup.tenant.id, FormOutcome.CANCELLED, "https://suite.test/back"),
+        )
+    }
+
+    @Test
+    fun `an expired link closes the form at once, and the sweep cancels the request`() = withReleasedTemplate { setup ->
+        val request = execute(setup.generate("{}", InteractiveGeneration(InteractiveTrigger.INCOMPLETE, expiresInMinutes = 60)))
+
+        testClock.advanceBy(Duration.ofMinutes(61))
+
+        assertThat(query(GetInteractiveForm(request.token()))).isEqualTo(
+            InteractiveFormView.Closed(request.id, setup.tenant.id, FormOutcome.EXPIRED, null),
+        )
+        assertThat(execute(SubmitInteractiveForm(request.token(), json(complete)))).isEqualTo(SubmitFormOutcome.Closed(FormOutcome.EXPIRED, null))
+
+        execute(ExpireInteractiveForms())
+
+        val expired = job(request)
+        assertThat(expired.status).isEqualTo(RequestStatus.CANCELLED)
+        assertThat(expired.cancelReason).isEqualTo(CancelReason.EXPIRED)
+        assertThat(results(request)).containsExactly(ResultLine("CANCELLED", "EXPIRED", hasData = false))
+    }
+
+    @Test
+    fun `the sweep leaves forms that have not expired`() = withReleasedTemplate { setup ->
+        val request = execute(setup.generate("{}", InteractiveGeneration(InteractiveTrigger.INCOMPLETE, expiresInMinutes = 60)))
+
+        testClock.advanceBy(Duration.ofMinutes(59))
+        execute(ExpireInteractiveForms())
+
+        assertThat(job(request).status).isEqualTo(RequestStatus.AWAITING_INPUT)
+    }
+
     private fun ThenScope.job(request: DocumentGenerationRequest): DocumentGenerationRequest = requireNotNull(query(GetGenerationJob(request.tenantKey, request.id))).request
+
+    private fun resultEditedFields(request: DocumentGenerationRequest): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
+        handle.createQuery("SELECT jsonb_array_elements_text(edited_fields) FROM generation_results WHERE request_id = :id")
+            .bind("id", request.id.value)
+            .mapTo(String::class.java)
+            .list()
+    }
 
     private data class ResultLine(val status: String, val cancelReason: String?, val hasData: Boolean)
 
