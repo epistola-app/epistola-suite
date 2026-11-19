@@ -92,13 +92,43 @@ Other measurements:
 
 ## What to do
 
-| #    | Change                                                                                                                          | Why                                                                                                                              | When                                             |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| 2, 3 | Mark a request that has a form (a boolean on `document_generation_requests`), and look up the interaction table only for those. | Takes findings 2 and 3 to zero for every request without a form. The migration has not been released, so the column can join it. | Before merge                                     |
-| 4    | Drive the sweep from the waiting requests, which a partial index on status finds directly, instead of from every interaction.   | Keeps the idle sweep constant instead of growing over the retention period.                                                      | Before merge, verified with a plan at 100k+ rows |
-| 6    | A node-wide bound on concurrent previews (a semaphore sized like the render pool), refusing with 429 beyond it.                 | Stops previews from competing with the queue's renders without limit.                                                            | Before the feature leaves alpha                  |
-| 5    | Reuse the resolved release inputs between acceptance and the worker, or analyse against a cheaper contract read.                | 10–15 ms per interactive acceptance. Acceptable for alpha.                                                                       | Later, if it matters                             |
-| 8    | Its own issue.                                                                                                                  | Not this feature.                                                                                                                | Separately                                       |
+| #    | Change                                                                                                                                           | Why                                                                                                                              | When                                             |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| 2, 3 | Done, see below. Mark a request that has a form (a boolean on `document_generation_requests`), and look up the interaction table only for those. | Takes findings 2 and 3 to zero for every request without a form. The migration has not been released, so the column can join it. | Before merge                                     |
+| 4    | Done, see below. Drive the sweep from the waiting requests, which a partial index on status finds directly, instead of from every interaction.   | Keeps the idle sweep constant instead of growing over the retention period.                                                      | Before merge, verified with a plan at 100k+ rows |
+| 6    | Done, see below. A node-wide bound on concurrent previews (a semaphore sized like the render pool), refusing with 429 beyond it.                 | Stops previews from competing with the queue's renders without limit.                                                            | Before the feature leaves alpha                  |
+| 5    | Reuse the resolved release inputs between acceptance and the worker, or analyse against a cheaper contract read.                                 | 10–15 ms per interactive acceptance. Acceptable for alpha.                                                                       | Later, if it matters                             |
+| 8    | Its own issue.                                                                                                                                   | Not this feature.                                                                                                                | Separately                                       |
+
+## After the fixes
+
+Findings 2, 3, 4 and 6 were fixed on the branch before merge (2026-11-19), then measured again.
+The laptop was busier still (load average about 11), so these numbers come from the database only:
+statement counts, and buffers read by `EXPLAIN (ANALYZE, BUFFERS)` under generic plans, as
+prepared statements run. Both are independent of CPU contention.
+
+- **2, 3: a request records `has_form`.** The job status, job list and cancel path look up the form
+  table only for a request that has a form. A status poll for a job without one is back to 9.1
+  statements, as on the baseline (10.0 before). The emitted result now reads its request once, in one
+  CTE instead of two subselects, and its form row only when it has one, pruned to the request's own
+  partition. Buffers read per emitted result, over four monthly partitions:
+
+  | Emit           | Before | After |
+  | -------------- | ------ | ----- |
+  | Without a form | 55     | 13    |
+  | With a form    | 51     | 19    |
+
+  A result without a form now costs less than on the baseline, which read the request twice.
+
+- **4: the sweep starts from the waiting requests.** With 200,000 forms over four partitions,
+  2,000 of them waiting: 51 ms → 6 ms with nothing due, 45 ms → 6 ms with 500 due. It now grows
+  with the forms that wait, not with every form kept. The existing status index finds the waiting
+  requests. A partial index on `AWAITING_INPUT` was tried and the planner never used it, so it was
+  dropped.
+- **6: previews are bounded per node over all forms** (`preview-concurrency`, default 4), beyond which
+  the form gets 429, as it does over its own limits. `PreviewLimitsTest` shows a third form refused
+  with two in flight, and that the test fails without the bound.
+- **8** is fixed separately, on its own branch: `last_used_at` is written at most once a minute.
 
 ## Not measured here
 

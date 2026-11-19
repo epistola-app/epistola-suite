@@ -111,16 +111,18 @@ public form page (`/forms/{id}`, own security chain, preview with per-form limit
 - `listGenerationJobs` parses `status` with `RequestStatus.valueOf`, while the contract sends
   `pending`, `in-progress`, … (and has no `awaiting-input` value), so filtering by status cannot
   work as specified. Predates this branch.
-- **Load impact** measured (`docs/interactive-generation-load-impact.md`): every emitted result and
-  every status poll now look up the interaction table (+0.03 ms and +0.01 ms, growing with the
-  number of partitions); the idle expiry sweep scans all interactions; previews have no node-wide
-  bound. Fixes proposed there, not yet made.
+- **Load impact** measured (`docs/interactive-generation-load-impact.md`). Findings 2, 3, 4 and 6
+  are fixed on this branch (`has_form`, a sweep that starts from the waiting requests,
+  `PreviewLimits`), with the measurements in the same doc. ✅ `PreviewLimitsTest` (4, fails without
+  the node bound), `InteractiveGenerationIntegrationTest` (29) and the collect/poller/job core tests
+  (124). Left: finding 5 (acceptance resolves the release twice), acceptable for alpha.
 - **Pre-existing, found by the load test:** `UPDATE api_keys SET last_used_at = NOW()`
-  (`RecordApiKeyUsage`) takes 13–28 ms of database time per API request under concurrency on one
-  key, the largest item in the database profile. Needs its own issue.
+  (`RecordApiKeyUsage`) took 13–28 ms of database time per API request under concurrency on one
+  key. Fixed separately on branch `fix/api-key-usage-write` (written at most once a minute,
+  `RecordApiKeyUsageIT` fails before).
 - epistola-contract#134 (short-lived links) is implemented in Suite core and prepared in the
-  contract worktree `epistola-contract-wt-forms` (branch `fix/url-pattern-anchors`, with the
-  pattern fix) for 2.1.1. Until 2.1.1 is released, REST cannot return `urlExpiresAt` and the
+  contract (branch `fix/interactive-links-2.1.1`, PR epistola-contract#135, with the pattern fix)
+  for 2.1.1. Until 2.1.1 is released, REST cannot return `urlExpiresAt` and the
   return-URL API test stays disabled.
 
 ### Dependency review (12 November; branch `chore/dependency-review`)
