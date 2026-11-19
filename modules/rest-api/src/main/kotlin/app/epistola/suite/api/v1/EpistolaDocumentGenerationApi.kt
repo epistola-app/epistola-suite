@@ -96,7 +96,7 @@ class EpistolaDocumentGenerationApi(
         val command = generateDocumentRequest.toCommand(tenantKey, catalogsOf(tenantKey))
         val request = command.execute()
 
-        return request.toJobResponse().let { acceptedAsJob(it.requestId.toString(), it) }
+        return request.toJobResponse(objectMapper).let { acceptedAsJob(it.requestId.toString(), it) }
     }
 
     override fun generateDocumentBatch(
@@ -129,7 +129,7 @@ class EpistolaDocumentGenerationApi(
 
         return ResponseEntity.ok(
             GenerationJobListResponse(
-                items = jobs.map { it.toJobDto() },
+                items = jobs.map { it.toJobDto(objectMapper) },
                 page = Pagination.pageMeta(page, size, total),
             ),
         )
@@ -143,7 +143,7 @@ class EpistolaDocumentGenerationApi(
         val typedRequestId = GenerationRequestKey.of(requestId)
         val jobResult = GetGenerationJob(typedTenantId, typedRequestId).query()
             ?: throw GenerationJobNotFoundException(typedTenantId, typedRequestId)
-        return ResponseEntity.ok(jobResult.request.toJobDto())
+        return ResponseEntity.ok(jobResult.request.toJobDto(objectMapper))
     }
 
     /**

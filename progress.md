@@ -75,6 +75,39 @@ Decided and closed:
 
 ## Touched
 
+### Interactive generation, contract 2.1.0 (19 November; branch `feat/data-collection-form`)
+
+Plan: `docs/plans/interactive-generation.md`. Contract 2.1.0 (ADR 0011, alpha) behind the
+`interactive-generation` toggle. Built so far: contract bump; core (status `AWAITING_INPUT`,
+`generation_request_interactions`, analysis against the bound release, token link, submit / cancel /
+expire, `cancelled` collect lines with `cancelReason`, `data` and `editedFields` on results); allowed
+return origins per application; the REST mapping (echo, `cancelReason`, item `data`/`editedFields`).
+Still to come: the public form page with preview, "try it" from the template page, demo catalog,
+docs.
+
+**Coverage:**
+
+- ✅ `InteractiveGenerationIntegrationTest` (24, core): triggers, never an example, never claimed,
+  expiry and origin refusals, submit once, render after submit, cancel by caller/person/expiry.
+- ✅ `InteractiveGenerationApiIT` (6 of 7, app): contract scenarios 400, 401, 403–406 over HTTP.
+  One test is disabled, see below.
+- ✅ unit: `OriginsTest`, `EditedFieldsTest`, `ReturnUrlsTest`, `ApiValidationCodesTest`,
+  `KnownFeaturesTest`; generation/collect/document/partition core tests (179) and
+  `SchemaHygieneAppTest` green.
+- ❌ a render that fails after submission keeps `data` on its result: the code path is shared with
+  `completed`, but no test forces the failure.
+
+**Noticed, untouched:**
+
+- **Contract 2.1.0 bug:** `returnUrl` and `links[].url` declare `pattern: '^https?://'`, a prefix
+  in JSON Schema, which the generated Bean Validation `@Pattern` must match in full, so every real
+  URL is refused (400 `pattern`). Needs a contract patch (e.g. `^https?://\S+$`). The code-list
+  `sourceUrl` patterns (`^https://`) have the same shape and likely the same defect.
+- `listGenerationJobs` parses `status` with `RequestStatus.valueOf`, while the contract sends
+  `pending`, `in-progress`, … (and has no `awaiting-input` value), so filtering by status cannot
+  work as specified. Predates this branch.
+- epistola-contract#134: short-lived form links, deferred; v1 implements 2.1.0 as published.
+
 ### Dependency review (12 November; branch `chore/dependency-review`)
 
 Folds the open Renovate PRs (#1051, #1089, #1336, #1364, #880) into one branch and fixes why they
