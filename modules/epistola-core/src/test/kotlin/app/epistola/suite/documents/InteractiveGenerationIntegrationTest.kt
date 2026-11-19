@@ -4,10 +4,14 @@
 
 package app.epistola.suite.documents
 
+import app.epistola.suite.applications.commands.CreateApplication
+import app.epistola.suite.applications.commands.SetApplicationReturnOrigins
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.commands.CancelFormOutcome
 import app.epistola.suite.documents.commands.CancelGenerationJob
@@ -29,6 +33,10 @@ import app.epistola.suite.documents.queries.InteractiveFormView
 import app.epistola.suite.documents.queries.ListGenerationJobs
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.PrincipalApplication
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.testing.DocumentSetup
@@ -51,6 +59,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.time.Duration
+import java.util.UUID
 
 /**
  * Interactive generation (contract ADR 0011) at acceptance: whether a request waits for input, what
@@ -258,6 +267,30 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `an application is held to its own return origins, not the installation's`() = withReleasedTemplate { setup ->
+        val caseSystem = applicationPrincipal(setup.tenant.id, origins = listOf("https://Cases.Example.org/"))
+        val back = InteractiveGeneration(InteractiveTrigger.INCOMPLETE, returnUrl = "https://cases.example.org/zaken/Z-1")
+
+        val accepted = runAs(caseSystem) { setup.generate("{}", back).execute() }
+        assertThat(accepted.status).isEqualTo(RequestStatus.AWAITING_INPUT)
+
+        val other = applicationPrincipal(setup.tenant.id, origins = emptyList())
+        val error = assertThrows<ValidationException> { runAs(other) { setup.generate("{}", back).execute() } }
+        assertThat(error.code).isEqualTo(ValidationCode.URL_NOT_ALLOWED)
+    }
+
+    @Test
+    fun `an application's return origins are origins only`() = withReleasedTemplate { setup ->
+        val application = execute(CreateApplication(tenantKey = setup.tenant.id, name = "Cases", roles = TenantRole.entries.toSet())).id
+
+        val error = assertThrows<ValidationException> {
+            execute(SetApplicationReturnOrigins(setup.tenant.id, application, listOf("https://cases.example.org/zaken")))
+        }
+
+        assertThat(error.field).isEqualTo("origins[0]")
+    }
+
+    @Test
     fun `cancelling a waiting request records the caller and delivers one cancelled result without data`() = withReleasedTemplate { setup ->
         val request = execute(setup.generate("""{"customer": {}}""", incomplete))
 
@@ -413,6 +446,25 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
         execute(ExpireInteractiveForms())
 
         assertThat(job(request).status).isEqualTo(RequestStatus.AWAITING_INPUT)
+    }
+
+    /** A caller authenticated as a new application of [tenant] that allows [origins], with every role. */
+    private fun applicationPrincipal(tenant: TenantKey, origins: List<String>): EpistolaPrincipal {
+        val application = withMediator {
+            val id = CreateApplication(tenantKey = tenant, name = "Case system", roles = TenantRole.entries.toSet()).execute().id
+            SetApplicationReturnOrigins(tenant, id, origins).execute()
+            id
+        }
+        val userId = UserKey.of(UUID.randomUUID())
+        return EpistolaPrincipal(
+            userId = userId,
+            externalId = "apikey:$userId",
+            email = "apikey-$userId@npa.epistola",
+            displayName = "Case system",
+            tenantMemberships = mapOf(tenant to TenantRole.entries.toSet()),
+            currentTenantId = tenant,
+            application = PrincipalApplication(application, seesAllDocuments = false, ownsUnattributedDocuments = false),
+        )
     }
 
     private fun ThenScope.job(request: DocumentGenerationRequest): DocumentGenerationRequest = requireNotNull(query(GetGenerationJob(request.tenantKey, request.id))).request
