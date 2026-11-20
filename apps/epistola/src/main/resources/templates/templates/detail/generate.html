@@ -4,10 +4,8 @@
     <!--/*
     "Generate document" on the template page (TemplateGenerationHandler):
       - `dialog` — swapped into #dialog-mount by the page-header action;
-      - `generate-form` — re-rendered in place on errors (dialogFieldErrors);
-      - `job-panel` — the job the page's token names, refreshing itself while it renders.
-    The job routes take a token, never a bare request id: it names the request and the signed-in
-    person, so a URL that leaks shows nothing to anyone else.
+      - `generate-form` — re-rendered in place on errors (dialogFieldErrors).
+    The job it starts has its own page, detail/job.html.
     */-->
     <th:block th:fragment="dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
@@ -38,9 +36,9 @@
                     <select id="generate-target" name="target" class="ep-select" required data-testid="generate-target">
                         <option th:each="t : ${choices.targets}" th:value="${t.value}"
                                 th:selected="${formData?.target == t.value}"
-                                th:text="${t.version != null} ? ${t.label + ' (' + t.version + ')'} : ${t.label + ' (work in progress)'}">Latest release</option>
+                                th:text="${t.version != null} ? ${t.label + ' (' + t.version + ')'} : ${t.label + ' (draft: ' + (t.draftName ?: 'work in progress') + ')'}">Latest release</option>
                     </select>
-                    <span class="form-hint">An environment renders the release deployed there.</span>
+                    <span class="form-hint" data-testid="generate-draft-hint">An environment renders the release deployed there, or the draft it follows. To generate from a draft, deploy it to a test environment.</span>
                     <span class="form-error" th:if="${errors?.containsKey('target')}" th:text="${errors.target}"></span>
                 </div>
 
@@ -82,46 +80,5 @@
         </div>
     </form>
 
-    <!--/* The job's panel. While it renders it fetches itself again every two seconds. */-->
-    <div th:fragment="job-panel" id="generation-job" class="alert"
-         th:classappend="${job.status.name() == 'COMPLETED'} ? 'alert-success' : (${job.status.name() == 'FAILED'} ? 'alert-error' : 'alert-info')"
-         role="status" data-testid="generation-job" th:attr="data-status=${job.status}"
-         th:hx-get="${job.running} ? @{${jobUrl}} : null"
-         th:hx-trigger="${job.running} ? 'every 2s' : null"
-         hx-swap="outerHTML">
-        <th:block th:switch="${job.status.name()}">
-            <th:block th:case="'AWAITING_INPUT'">
-                <p style="margin: 0 0 var(--ep-space-2);">This document waits for its data to be completed in the form.</p>
-                <a th:if="${job.formUrl != null}" th:href="${job.formUrl}" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="generation-job-open-form">Open the form</a>
-            </th:block>
-            <p th:case="'PENDING'" style="margin: 0;">The document is queued for rendering…</p>
-            <p th:case="'IN_PROGRESS'" style="margin: 0;">The document is rendering…</p>
-            <th:block th:case="'COMPLETED'">
-                <p style="margin: 0 0 var(--ep-space-2);">The document is ready.</p>
-                <p th:if="${job.editedFields != null and !#lists.isEmpty(job.editedFields)}" style="margin: 0 0 var(--ep-space-2);">
-                    Changed in the form: <code th:each="f, s : ${job.editedFields}" th:text="${f} + (${s.last} ? '' : ', ')">/name</code>
-                </p>
-                <a th:if="${job.downloadable}" th:href="@{${jobUrl} + '/document'}" hx-boost="false"
-                   class="ep-btn ep-btn-primary ep-btn-sm" data-testid="generation-job-download">
-                    <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
-                    Download PDF
-                </a>
-            </th:block>
-            <p th:case="'FAILED'" style="margin: 0;">
-                The document could not be rendered: <span th:text="${job.errorMessage}">reason</span>
-            </p>
-            <th:block th:case="'CANCELLED'">
-                <p style="margin: 0;" th:switch="${job.cancelReason}">
-                    <span th:case="'USER'">The form was cancelled; no document was generated.</span>
-                    <span th:case="'EXPIRED'">Nobody completed the form in time; no document was generated.</span>
-                    <span th:case="*">The job was cancelled; no document was generated.</span>
-                </p>
-            </th:block>
-        </th:block>
-        <button th:if="${job.cancellable}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                style="margin-top: var(--ep-space-2);"
-                th:hx-post="@{${jobUrl} + '/cancel'}" hx-target="#generation-job" hx-swap="outerHTML"
-                data-testid="generation-job-cancel">Cancel job</button>
-    </div>
 </body>
 </html>

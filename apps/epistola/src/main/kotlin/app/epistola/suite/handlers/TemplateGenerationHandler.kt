@@ -59,17 +59,17 @@ import tools.jackson.core.JacksonException
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.time.Duration
+import java.time.OffsetDateTime
 
 /**
  * "Generate document" on the template page: the dialog that asks for an environment, a variant, the
- * data and whether a person completes it in a form first (contract ADR 0011), and the panel that
- * follows the job it started until its document can be downloaded.
+ * data and whether a person completes it in a form first (contract ADR 0011), and the job's own page,
+ * which follows it until its document can be downloaded.
  *
  * The UI cannot call the REST API, so the dialog dispatches the same [GenerateDocument]. The job
  * routes never take a bare request id: a person here may hold `DOCUMENT_VIEW`, which reads every
  * document in the tenant, so they take a [GenerationJobTokens] token naming the request and the
- * signed-in person, and answer 404 for anything else. The form returns the browser to the template
- * page with that token.
+ * signed-in person, and answer 404 for anything else. The form returns the browser to the job's page.
  */
 @Component
 class TemplateGenerationHandler(
@@ -104,7 +104,7 @@ class TemplateGenerationHandler(
 
     /**
      * `POST …/templates/{id}/generate`: starts the job. With a form, the browser goes to it; without
-     * one, back to the template page, where the panel follows the job.
+     * one, to the job's page.
      */
     fun generate(request: ServerRequest): ServerResponse {
         val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
@@ -148,7 +148,7 @@ class TemplateGenerationHandler(
                         data = data,
                         filename = null,
                         interactive = trigger?.let {
-                            InteractiveGeneration(it, returnUrl = absolute(templatePage(ctx, token)), title = ctx.template.name)
+                            InteractiveGeneration(it, returnUrl = absolute(jobPage(ctx, token)), title = ctx.template.name)
                         },
                         requestId = requestId,
                     ).execute()
@@ -171,23 +171,27 @@ class TemplateGenerationHandler(
             }
         }
         val formUrl = started!!.interactive?.url
-        val next = formUrl ?: templatePage(ctx, token)
+        val next = formUrl ?: jobPage(ctx, token!!)
         return request.htmx {
             dialogRedirect(next)
             onFullPage { redirect(next) }
         }
     }
 
-    /** `GET …/templates/{id}/jobs/{token}`: the panel for the job [token] names, refreshed while it runs. */
+    /**
+     * `GET …/templates/{id}/jobs/{token}`: the job's page — what it renders, where it stands and what
+     * the person can do next. An HTMX request gets the part that refreshes itself while the job moves.
+     */
     fun job(request: ServerRequest): ServerResponse {
         val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
         val job = ownJob(request, ctx.templateId.tenantKey, ctx) ?: return ServerResponse.notFound().build()
-        return request.htmx {
-            fragment(DIALOG, "job-panel") {
-                "job" to JobPanel.of(job)
-                "jobUrl" to "${templatePage(ctx)}/jobs/${request.pathVariable("token")}"
-            }
-            onFullPage { redirect(templatePage(ctx, request.pathVariable("token"))) }
+        val model = jobModel(ctx, job, request.pathVariable("token"))
+        if (request.headers().firstHeader("HX-Request") != null && request.headers().firstHeader("HX-Boosted") == null) {
+            return request.htmx { fragment(JOB, "job") { model.forEach { (k, v) -> k to v } } }
+        }
+        return ServerResponse.ok().page(JOB) {
+            "pageTitle" to "Generated document - Epistola"
+            model.forEach { (k, v) -> k to v }
         }
     }
 
@@ -207,13 +211,18 @@ class TemplateGenerationHandler(
             .body(InputStreamResource(stored.content))
     }
 
-    /** `POST …/templates/{id}/jobs/{token}/cancel`: cancels the job, and shows the panel again. */
+    /** `POST …/templates/{id}/jobs/{token}/cancel`: cancels the job, and shows where it stands now. */
     fun cancel(request: ServerRequest): ServerResponse {
         val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
         val tenantKey = ctx.templateId.tenantKey
         val job = ownJob(request, tenantKey, ctx) ?: return ServerResponse.notFound().build()
         if (job.isCancellable) CancelGenerationJob(tenantKey, job.id).execute()
-        return job(request)
+        val now = ownJob(request, tenantKey, ctx) ?: return ServerResponse.notFound().build()
+        val model = jobModel(ctx, now, request.pathVariable("token"))
+        return request.htmx {
+            fragment(JOB, "job") { model.forEach { (k, v) -> k to v } }
+            onFullPage { redirect(jobPage(ctx, request.pathVariable("token"))) }
+        }
     }
 
     /**
@@ -232,7 +241,7 @@ class TemplateGenerationHandler(
         val catalog: CatalogId = request.catalog(request.tenantId())
         val environments = ListDeployments(ctx.templateId.tenantKey, catalog).query()
             .distinctBy { it.environmentKey }
-            .map { GenerateChoices.Target("$ENVIRONMENT${it.environmentKey.value}", it.environmentKey.value, it.version, it.environmentKey) }
+            .map { GenerateChoices.Target("$ENVIRONMENT${it.environmentKey.value}", it.environmentKey.value, it.version, it.environmentKey, it.draftName) }
         val latest = ctx.draftBar?.latestPublished
         val targets = listOfNotNull(latest?.let { GenerateChoices.Target(LATEST, "Latest release", it) }) + environments
         val variants = GetVariantSummaries(templateId = ctx.templateId, catalogVersion = ctx.catalogVersion).query()
@@ -249,6 +258,14 @@ class TemplateGenerationHandler(
         "triggers" to TRIGGERS,
     )
 
+    private fun jobModel(ctx: TemplateDetailContext, job: DocumentGenerationRequest, token: String): Map<String, Any?> = mapOf(
+        "tenantId" to ctx.tenantId,
+        "catalogSegment" to ctx.catalogSegment,
+        "template" to ctx.template,
+        "job" to JobPanel.of(job, objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(job.data)),
+        "jobUrl" to jobPage(ctx, token),
+    )
+
     private fun parseData(text: String): ObjectNode? = try {
         objectMapper.readTree(text.ifBlank { "{}" }) as? ObjectNode
     } catch (_: JacksonException) {
@@ -263,7 +280,9 @@ class TemplateGenerationHandler(
         else -> null
     }
 
-    private fun templatePage(ctx: TemplateDetailContext, token: String? = null): String = "/tenants/${ctx.tenantId}/catalogs/${ctx.catalogSegment}/templates/${ctx.templateId.key.value}" + (token?.let { "?job=$it" } ?: "")
+    private fun templatePage(ctx: TemplateDetailContext): String = "/tenants/${ctx.tenantId}/catalogs/${ctx.catalogSegment}/templates/${ctx.templateId.key.value}"
+
+    private fun jobPage(ctx: TemplateDetailContext, token: String): String = "${templatePage(ctx)}/jobs/$token"
 
     private fun absolute(path: String): String = requireNotNull(interactiveProperties.publicBaseUrl).trimEnd('/') + path
 
@@ -271,6 +290,7 @@ class TemplateGenerationHandler(
 
     private companion object {
         const val DIALOG = "templates/detail/generate"
+        const val JOB = "templates/detail/job"
         const val ENVIRONMENT = "environment:"
         const val LATEST = "latest"
         const val MAX_DATA = 100_000
@@ -294,8 +314,11 @@ data class GenerateChoices(
     /** Whether the tenant has interactive generation on, so the dialog may ask for a form. */
     val formsAvailable: Boolean,
 ) {
-    /** Where to generate from: the catalog's latest release, or the release an environment serves. */
-    data class Target(val value: String, val label: String, val version: String?, val environment: EnvironmentKey? = null)
+    /**
+     * Where to generate from: the catalog's latest release, or what an environment serves — its
+     * highest release, or the draft it follows ([draftName]; [version] null), rendered live.
+     */
+    data class Target(val value: String, val label: String, val version: String?, val environment: EnvironmentKey? = null, val draftName: String? = null)
 
     data class Trigger(val value: String, val label: String)
 
@@ -303,7 +326,7 @@ data class GenerateChoices(
     val nothingToGenerate: Boolean get() = targets.isEmpty()
 }
 
-/** The job panel on the template page: what the job is doing and what the person can do next. */
+/** The job's page: what it renders, where it stands, and what the person can do next. */
 data class JobPanel(
     val status: RequestStatus,
     /** A fresh link to the form while the job waits for it. */
@@ -313,12 +336,34 @@ data class JobPanel(
     val errorMessage: String?,
     val cancelReason: String?,
     val editedFields: List<String>?,
+    val variant: String,
+    /** The environment it went through; null for the catalog's latest release. */
+    val environment: String?,
+    /** The release it renders; null when it renders the draft [environment] follows. */
+    val releaseVersion: String?,
+    /** The draft it renders, live, as its environment follows one. */
+    val draftLabel: String?,
+    val filename: String?,
+    val requestedAt: OffsetDateTime,
+    val submittedAt: OffsetDateTime?,
+    val completedAt: OffsetDateTime?,
+    /** Whether it waited for a form at all. */
+    val hasForm: Boolean,
+    /** The data it renders, pretty-printed: after a form, as the person submitted it. */
+    val data: String,
 ) {
-    /** Still changing: the panel refreshes itself. */
-    val running: Boolean get() = status == RequestStatus.PENDING || status == RequestStatus.IN_PROGRESS
+    /**
+     * How often the page fetches the job again, or null once nothing more can change on its own:
+     * quickly while it renders, slowly while a form, perhaps open in another tab, waits.
+     */
+    val refreshEvery: String? get() = when (status) {
+        RequestStatus.PENDING, RequestStatus.IN_PROGRESS -> "every 2s"
+        RequestStatus.AWAITING_INPUT -> "every 5s"
+        else -> null
+    }
 
     companion object {
-        fun of(job: DocumentGenerationRequest) = JobPanel(
+        fun of(job: DocumentGenerationRequest, data: String) = JobPanel(
             status = job.status,
             formUrl = job.interactive?.url?.takeIf { job.status == RequestStatus.AWAITING_INPUT },
             cancellable = job.isCancellable,
@@ -326,6 +371,16 @@ data class JobPanel(
             errorMessage = job.errorMessage?.takeIf { job.status == RequestStatus.FAILED },
             cancelReason = job.cancelReason?.name,
             editedFields = job.interactive?.editedFields,
+            variant = job.variantKey.value,
+            environment = job.environmentKey?.value,
+            releaseVersion = job.releaseVersion,
+            draftLabel = job.draftLabel,
+            filename = job.filename,
+            requestedAt = job.createdAt,
+            submittedAt = job.submittedAt,
+            completedAt = job.completedAt,
+            hasForm = job.hasForm,
+            data = data,
         )
     }
 }

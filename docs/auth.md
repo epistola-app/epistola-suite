@@ -465,17 +465,17 @@ that created the generation request authenticated them and handed them a link.
 ## Following a generation job from the UI
 
 "Generate document" on a template's page (`TemplateGenerationHandler`) dispatches the same
-`GenerateDocument` the REST API does, and then shows the job on that page until its PDF can be
-downloaded. A person may hold `DOCUMENT_VIEW`, which reads every document in the tenant, including the
-ones applications generated, so the page's job routes (`…/templates/{key}/jobs/{token}`, its
-`/document` and `/cancel`) never take a bare request id.
+`GenerateDocument` the REST API does, and then shows the job on a page of its own until its PDF can
+be downloaded. A person may hold `DOCUMENT_VIEW`, which reads every document in the tenant, including the
+ones applications generated, so the job's page (`…/templates/{key}/jobs/{token}`) and its
+`/document` and `/cancel` routes never take a bare request id.
 
 - **The token** (`GenerationJobTokens`) is signed with the form links' installation key, under a
   purpose of its own, over the request, the person's user id and an expiry (the form's default wait
   plus a day). A form link code or session is never accepted as one.
 - **Every job route** answers 404, without saying why, unless the token is valid, unexpired, names
   the signed-in person, and names a job of this tenant and template.
-- **With a form**, the token rides the form's return URL back to the template page. That URL is kept
+- **With a form**, the form's return URL is the job's page, token included. That URL is kept
   with the form and shows up in the browser history; the token is of no use to anyone else.
 
 ## Session Management

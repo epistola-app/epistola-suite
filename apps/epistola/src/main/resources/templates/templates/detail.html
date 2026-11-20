@@ -16,12 +16,6 @@
             actions=${mayGenerate} ? ~{::template-actions} : null
         )}"></div>
 
-        <!--/* The job a "Generate document" started, named by the token the form returns with. The
-               panel route checks the token; this page only passes it on. */-->
-        <div th:if="${jobToken != null}"
-             th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/{id}/jobs/{token}(tenantId=${tenantId},catalogSeg=${catalogSegment ?: catalogId},id=${template.id},token=${jobToken})}"
-             hx-trigger="load" hx-swap="outerHTML" data-testid="generation-job-loading"></div>
-
         <div id="generate-dialog-mount" data-dialog-mount></div>
 
         <!-- Tab Navigation -->

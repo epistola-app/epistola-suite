@@ -85,16 +85,17 @@ return origins per application; the REST mapping (echo, `cancelReason`, item `da
 Built since: short-lived single-use links and form sessions (contract#134, Suite side), and the
 public form page (`/forms/{id}`, own security chain, preview with per-form limits, the
 `data-form` editor entry); "Generate document" on the template page (20 November), with a form as
-an option and a job panel that follows the job to its PDF, reached by a token signed for the person
-(`GenerationJobTokens`). Still to come: demo catalog, docs page.
+an option and a page of its own per job that follows it to its PDF, reached by a token signed for
+the person (`GenerationJobTokens`); an environment following a draft renders that draft. Still to come: demo catalog, docs page.
 
 **Coverage:**
 
-- ✅ `GenerationJobTokensIT` (5, core) and `TemplateGenerationHandlerTest` (7, app): the action and
-  dialog, both flows, the panel to the PDF, and 404 for another person, a changed or expired token,
+- ✅ `GenerationJobTokensIT` (5, core) and `TemplateGenerationHandlerTest` (8, app): the action and
+  dialog, both flows, the job's page to the PDF, an environment following a draft (offered, renders
+  the draft), and 404 for another person, a changed or expired token,
   a form session, a bare id and another tenant. Shown failing without the user check, without the
   expiry check, and with a bare id accepted. Checked by hand on the demo app (both flows, the PDF,
-  edited fields). Not covered: a Playwright test of the dialog and panel in a browser.
+  edited fields). Not covered: a Playwright test of the dialog and the job's page in a browser.
 - Noticed, untouched: the dialog's "Latest release" option uses `CatalogDraftBar.latestPublished`, a
   release cut in this installation, so an installed catalog (the demo's) offers only its
   environments. The API tab has the same limit. The REST `downloadDocument` puts the stored filename

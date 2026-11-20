@@ -34,8 +34,6 @@ data class TemplateDetailContext(
     val catalogVersion: CatalogReleaseRef? = null,
     /** Which draft this is and the others to switch to. */
     val draftBar: CatalogDraftBar? = null,
-    /** The `job` query parameter: a job token the page shows a panel for, checked by the panel's route. */
-    val jobToken: String? = null,
 )
 
 /**
@@ -70,7 +68,6 @@ class TemplateDetailHelper {
             catalogSegment = segment.value,
             catalogVersion = version,
             draftBar = draftBar,
-            jobToken = request.param("job").orElse(null)?.takeIf { it.isNotBlank() },
         )
     }
 
@@ -92,7 +89,6 @@ class TemplateDetailHelper {
             "editable" to ctx.editable,
             "activeTab" to activeTab,
             "contentView" to "templates/detail",
-            "jobToken" to ctx.jobToken,
             // Generating is offered to whoever may generate documents in the tenant; the dialog says
             // when there is nothing to generate from yet.
             "mayGenerate" to (SecurityContext.currentOrNull()?.hasPermission(ctx.templateId.tenantKey, Permission.DOCUMENT_GENERATE) == true),

@@ -5,7 +5,10 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.catalog.releases.GetCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -17,6 +20,8 @@ import app.epistola.suite.documents.GenerationJobTokens
 import app.epistola.suite.documents.interactive.InteractiveFormLinks
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.GetGenerationJob
+import app.epistola.suite.environments.commands.CreateEnvironment
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
@@ -54,8 +59,8 @@ import java.util.UUID
 
 /**
  * "Generate document" on the template page over real HTTP: the action and its dialog, the job it
- * starts with a form and without, the panel that follows it to its PDF, and above all that the job
- * routes answer only the person the token was issued to — not another person with the same roles,
+ * starts with a form and without, the job's page that follows it to its PDF, and above all that the
+ * job routes answer only the person the token was issued to — not another person with the same roles,
  * not a changed or expired token, not a form session, not another tenant.
  */
 class TemplateGenerationHandlerTest : BaseIntegrationTest() {
@@ -117,17 +122,28 @@ class TemplateGenerationHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `without a form the page follows the job to its PDF`() {
+    fun `without a form the job's page follows the job to its PDF`() {
         val tenant = releasedTemplate()
 
         val started = generate(tenant)
         assertThat(started.statusCode()).isEqualTo(200)
         val next = started.headers().firstValue("HX-Redirect").orElseThrow()
-        assertThat(next).startsWith("${page(tenant)}?job=")
-        val token = next.substringAfter("?job=")
+        assertThat(next).startsWith("${page(tenant)}/jobs/")
+        val token = next.substringAfter("/jobs/")
 
-        assertThat(get(next).body()).contains("data-testid=\"generation-job-loading\"", "/jobs/$token")
-        assertThat(get(panel(tenant, token), htmxRequest).body()).contains("data-status=\"PENDING\"", "hx-trigger=\"every 2s\"")
+        // Opened directly: the whole page, with what the job renders and the data it renders.
+        val opened = get(next)
+        assertThat(opened.statusCode()).isEqualTo(200)
+        assertThat(opened.body()).contains(
+            "Generated document",
+            "data-status=\"PENDING\"",
+            "hx-trigger=\"every 2s\"",
+            "the catalog's latest",
+            "&quot;name&quot; : &quot;Jane&quot;",
+        )
+        // Refreshing itself: the job part alone.
+        val refreshed = get(panel(tenant, token), htmxRequest).body()
+        assertThat(refreshed).contains("data-status=\"PENDING\"").doesNotContain("page-header")
 
         val request = withMediator { GetGenerationJob(tenant, verify(token)).query()!!.request }
         val pdf = "%PDF-1.7 test".toByteArray()
@@ -144,7 +160,7 @@ class TemplateGenerationHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `with a form the browser goes to it, and cancelling it brings the token back to the page`() {
+    fun `with a form the browser goes to it, and cancelling it returns to the job's page`() {
         val tenant = releasedTemplate()
 
         val started = generate(tenant, trigger = "ALWAYS")
@@ -164,18 +180,18 @@ class TemplateGenerationHandlerTest : BaseIntegrationTest() {
         )
 
         val back = cancelled.headers().firstValue("Location").orElseThrow()
-        assertThat(back).startsWith("https://suite.test${page(tenant)}?job=").contains("&epistolaRequestStatus=cancelled")
-        val token = back.substringAfter("?job=").substringBefore('&')
-        assertThat(get(panel(tenant, token), htmxRequest).body()).contains("data-status=\"CANCELLED\"", "The form was cancelled")
+        assertThat(back).startsWith("https://suite.test${page(tenant)}/jobs/").contains("epistolaRequestStatus=cancelled")
+        val token = back.substringAfter("/jobs/").substringBefore('?')
+        assertThat(get(panel(tenant, token)).body()).contains("data-status=\"CANCELLED\"", "The form was cancelled").doesNotContain("every 2s", "every 5s")
     }
 
     @Test
-    fun `while the form waits the panel links to it and cancels the job`() {
+    fun `while the form waits the job's page links to it, keeps checking, and cancels the job`() {
         val tenant = releasedTemplate()
         val token = tokenOf(tenant, generate(tenant, trigger = "ALWAYS"))
 
-        val waiting = get(panel(tenant, token), htmxRequest).body()
-        assertThat(waiting).contains("data-status=\"AWAITING_INPUT\"", "data-testid=\"generation-job-open-form\"", "https://suite.test/forms/")
+        val waiting = get(panel(tenant, token)).body()
+        assertThat(waiting).contains("data-status=\"AWAITING_INPUT\"", "data-testid=\"generation-job-open-form\"", "https://suite.test/forms/", "hx-trigger=\"every 5s\"", "Not yet")
 
         val cancelled = post("${panel(tenant, token)}/cancel", htmxRequest)
         assertThat(cancelled.statusCode()).isEqualTo(200)
@@ -205,10 +221,31 @@ class TemplateGenerationHandlerTest : BaseIntegrationTest() {
         assertThat(withMediator { GetGenerationJob(tenant, requestId).query()!!.request.status }).`as`("no cancel got through").isEqualTo(RequestStatus.AWAITING_INPUT)
     }
 
+    @Test
+    fun `an environment following a draft is offered, and generating through it renders the draft`() {
+        val tenant = tenantWithTemplate()
+        val staging = EnvironmentId(EnvironmentKey.of("staging"), TenantId(tenant))
+        withMediator {
+            val catalog = variantOf(tenant).templateId.catalogId
+            CreateEnvironment(staging, "Staging").execute()
+            DeployCatalogRelease(staging, catalog, GetCatalogDraft(catalog).query()!!.versionId).execute()
+        }
+
+        val dialog = get("${page(tenant)}/generate", htmxRequest).body()
+        assertThat(dialog).contains("value=\"environment:staging\"", "staging (draft: ", "To generate from a draft, deploy it to a test environment.")
+
+        val started = generate(tenant, target = "environment:staging")
+        assertThat(started.statusCode()).describedAs(started.body()).isEqualTo(200)
+        val token = started.headers().firstValue("HX-Redirect").orElseThrow().substringAfter("/jobs/")
+        assertThat(withMediator { GetGenerationJob(tenant, verify(token)).query()!!.request.draftId }).isNotNull()
+        assertThat(get(panel(tenant, token)).body()).contains("The draft <strong>", "<code>staging</code> follows it")
+    }
+
     // ---------------------------------------------------------------------------------------------
 
     private fun assertNotFound(tenant: TenantKey, token: String, vararg headers: Pair<String, String>) {
-        assertThat(get(panel(tenant, token), htmxRequest, *headers).statusCode()).`as`("panel").isEqualTo(404)
+        assertThat(get(panel(tenant, token), *headers).statusCode()).`as`("page").isEqualTo(404)
+        assertThat(get(panel(tenant, token), htmxRequest, *headers).statusCode()).`as`("refresh").isEqualTo(404)
         assertThat(getBytes("${panel(tenant, token)}/document", *headers).statusCode()).`as`("document").isEqualTo(404)
         assertThat(post("${panel(tenant, token)}/cancel", htmxRequest, *headers).statusCode()).`as`("cancel").isEqualTo(404)
     }
@@ -232,10 +269,10 @@ class TemplateGenerationHandlerTest : BaseIntegrationTest() {
         app.epistola.suite.documents.queries.ListGenerationJobs(tenant).query().size
     }
 
-    private fun generate(tenant: TenantKey, data: String = """{"name": "Jane", "motivation": "Because."}""", trigger: String = ""): HttpResponse<String> = post(
+    private fun generate(tenant: TenantKey, data: String = """{"name": "Jane", "motivation": "Because."}""", trigger: String = "", target: String = "latest"): HttpResponse<String> = post(
         "${page(tenant)}/generate",
         "HX-Request" to "true",
-        form = listOf("target" to "latest", "variant" to VariantKey.INITIAL.value, "data" to data, "trigger" to trigger),
+        form = listOf("target" to target, "variant" to VariantKey.INITIAL.value, "data" to data, "trigger" to trigger),
     )
 
     private fun get(path: String, vararg headers: Pair<String, String>): HttpResponse<String> = http.send(

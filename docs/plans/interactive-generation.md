@@ -26,7 +26,7 @@ and only repeats its findings where they shape a step.
 - An expiry sweep, a default and maximum expiry, and allowed return/link origins kept per
   application (step 2).
 - **Generate from the UI** (_changed_ 2026-11-20): "Generate document" on the template page, with a
-  form as an option; the form opens in the same tab and returns to the template page, which follows
+  form as an option; the form opens in the same tab and returns to the job's own page, which follows
   the job to its PDF.
 - A per-tenant alpha feature toggle.
 
@@ -282,14 +282,18 @@ through UI routes under `…/templates/{key}`.
   asks where to generate from (an environment serving the catalog, or the catalog's latest release
   cut here), the variant (the default preselected), the data (the first data example), and, only
   while the toggle is on, whether to ask for the data in a form (no / when incomplete / always).
-  With nothing to generate from it says so and links to the catalog.
-- **Without a form** the dialog returns to the template page with `?job={token}`. **With a form** the
-  browser goes to the form, whose `returnUrl` is that same page; the form adds `epistolaRequestId` and
+  With nothing to generate from it says so and links to the catalog. An environment following a
+  draft is offered as "staging (draft: …)" and renders that draft; there is no option to render a
+  draft directly, since `GenerateDocument` renders only a release or the draft an environment
+  follows (contract ADR 0003). The dialog says so: deploy the draft to a test environment.
+- **Without a form** the dialog goes to the job's page, `…/templates/{key}/jobs/{token}`. **With a
+  form** the browser goes to the form, whose `returnUrl` is that same page; the form adds `epistolaRequestId` and
   `epistolaRequestStatus`. The UI chooses the request id up front (`GenerateDocument.requestId`),
   because the token in the return URL is signed over it.
-- **The job panel** on the template page shows the status, refreshing every two seconds while it
-  renders; a fresh form link and Cancel while it waits; the PDF and the edited fields once done; the
-  reason when cancelled or failed.
+- **The job's page** shows the status, a fresh form link and Cancel while the form waits, the PDF
+  once done, the reason when cancelled or failed; what it renders (release or draft, environment),
+  when it was requested, submitted and finished, the fields changed in the form, and the data. It
+  refreshes itself every two seconds while rendering and every five while the form waits.
 - **Access:** the job routes take a `GenerationJobTokens` token, never a bare request id: signed with
   the form links' key under its own purpose, over the request, the person's user id and an expiry.
   Anything else gets 404 (`docs/auth.md`).
