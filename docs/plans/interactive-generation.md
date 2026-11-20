@@ -247,6 +247,10 @@ beside a preview that stays in view on wide screens and renders by itself once n
 missing; the actions stay at the bottom with a count of the required fields left; the expiry is in
 the reader's own time.
 
+The generated form shows fields in the order the stored schema has them, which is PostgreSQL
+`jsonb` key order (shortest key first), not the order the contract was written in. Decided: the order
+is not written into the schema; the form designer (a configured form definition) will set it.
+
 **Submit.** The server validates (the browser is not trusted). Errors re-render the form with the
 messages for each path. On success it redirects to `returnUrl` with `epistolaRequestId` and
 `epistolaRequestStatus`: appended after the existing query, replacing a parameter of the same name,

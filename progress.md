@@ -104,8 +104,10 @@ the person (`GenerationJobTokens`); an environment following a draft renders tha
   `data-form-lib.test.ts` (the list's server problem cleared once an item is added; shown failing
   without the fix), `InteractiveFormUiTest` (3, incl. a submit with a field left empty). Checked by
   screenshot at 1400 px and 390 px on the demo invoice.
-- Noticed, untouched: the form's field order is PostgreSQL `jsonb` key order (shortest key first),
-  not the contract's — fixed next, separately. A `date-time` field is a plain text input.
+- Noticed, untouched: the generated form's field order is PostgreSQL `jsonb` key order (shortest
+  key first), not the order the contract was written in; the data contract tab shows the same order.
+  Decided (20 November): the order is not written into the schema — the form designer that is
+  coming will set it. A `date-time` field is a plain text input.
 - Noticed, untouched: the dialog's "Latest release" option uses `CatalogDraftBar.latestPublished`, a
   release cut in this installation, so an installed catalog (the demo's) offers only its
   environments. The API tab has the same limit. The REST `downloadDocument` puts the stored filename
