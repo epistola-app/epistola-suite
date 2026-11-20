@@ -97,6 +97,6 @@ COMMENT ON COLUMN generation_results.edited_fields IS 'JSON Pointers where data 
 -- ---------------------------------------------------------------------------------------------
 
 ALTER TABLE applications
-    ADD COLUMN allowed_return_origins TEXT[] NOT NULL DEFAULT '{}';
+    ADD COLUMN allowed_return_urls TEXT[] NOT NULL DEFAULT '{}';
 
-COMMENT ON COLUMN applications.allowed_return_origins IS 'Origins (scheme://host[:port]) an interactive generation request of this application may name as returnUrl or link. Matched exactly.';
+COMMENT ON COLUMN applications.allowed_return_urls IS 'Starts of the URLs (scheme://host[:port][/path]) an interactive generation request of this application may name as returnUrl or link: same origin, and a path under the entry''s at a slash (ReturnUrlPrefix).';

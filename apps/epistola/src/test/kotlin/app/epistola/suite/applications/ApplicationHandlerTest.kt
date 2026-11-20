@@ -10,6 +10,8 @@ import app.epistola.suite.apikeys.queries.ListApiKeys
 import app.epistola.suite.applications.commands.CreateApplication
 import app.epistola.suite.applications.queries.GetApplication
 import app.epistola.suite.applications.queries.ListApplications
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.TenantRole
@@ -237,6 +239,50 @@ class ApplicationHandlerTest : BaseIntegrationTest() {
         val other = createTenant("Apps other").id
         val app = withMediator { CreateApplication(tenant, "Case system", roles = setOf(TenantRole.CONTENT_VIEWER)).execute() }
         assertThat(get("/tenants/$other/applications/${app.id}").statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+    }
+
+    @Test
+    fun `an application's form return addresses are set on its page, one per line, and stored normalised`() {
+        val tenant = createTenant("Apps return urls").id
+        withMediator { SaveFeatureToggle(tenant, KnownFeatures.INTERACTIVE_GENERATION, true).execute() }
+        val app = withMediator { CreateApplication(tenant, "Case system", roles = setOf(TenantRole.DOCUMENT_GENERATOR)).execute() }
+
+        val page = get("/tenants/$tenant/applications/${app.id}").body!!
+        assertThat(page).contains("data-testid=\"return-urls-edit\"", "data-testid=\"return-urls-empty\"", "https://suite.test", "always allowed")
+        assertThat(get("/tenants/$tenant/applications/${app.id}/return-urls", htmx = true).body).contains("id=\"return-urls-form\"", "name=\"urls\"")
+
+        val saved = post("/tenants/$tenant/applications/${app.id}/return-urls", htmx = true, "urls" to "https://Cases.Example.org/zaken/\n\n  https://portal.example.org  \n")
+        assertThat(saved.headers.getFirst("HX-Redirect")).isEqualTo("/tenants/$tenant/applications/${app.id}")
+        assertThat(withMediator { GetApplication(tenant, app.id).query() }!!.allowedReturnUrls)
+            .containsExactly("https://cases.example.org/zaken", "https://portal.example.org")
+        assertThat(get("/tenants/$tenant/applications/${app.id}").body).contains("https://cases.example.org/zaken").doesNotContain("return-urls-empty")
+    }
+
+    @Test
+    fun `an address forms cannot return to is refused in the dialog, and nothing is stored`() {
+        val tenant = createTenant("Apps return urls refused").id
+        withMediator { SaveFeatureToggle(tenant, KnownFeatures.INTERACTIVE_GENERATION, true).execute() }
+        val app = withMediator { CreateApplication(tenant, "Case system", roles = setOf(TenantRole.DOCUMENT_GENERATOR)).execute() }
+
+        val refused = post("/tenants/$tenant/applications/${app.id}/return-urls", htmx = true, "urls" to "https://cases.example.org\nhttps://cases.example.org/zaken?tab=1")
+
+        assertThat(refused.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+        assertThat(refused.body).contains("is not an address forms can return to")
+        assertThat(withMediator { GetApplication(tenant, app.id).query() }!!.allowedReturnUrls).isEmpty()
+    }
+
+    @Test
+    fun `without the feature the page says why there is nothing to set, and only managers may set it`() {
+        val tenant = createTenant("Apps return urls off").id
+        val app = withMediator { CreateApplication(tenant, "Case system", roles = setOf(TenantRole.DOCUMENT_GENERATOR)).execute() }
+
+        val page = get("/tenants/$tenant/applications/${app.id}").body!!
+        assertThat(page).contains("data-testid=\"return-urls-withheld\"", "Interactive generation (alpha) is off").doesNotContain("data-testid=\"return-urls-edit\"")
+
+        withMediator { SaveFeatureToggle(tenant, KnownFeatures.INTERACTIVE_GENERATION, true).execute() }
+        val viewer = post("/tenants/$tenant/applications/${app.id}/return-urls", htmx = true, "urls" to "https://cases.example.org", roles = "CONTENT_VIEWER")
+        assertThat(viewer.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+        assertThat(withMediator { GetApplication(tenant, app.id).query() }!!.allowedReturnUrls).isEmpty()
     }
 
     private fun get(url: String, htmx: Boolean = false, roles: String? = null): ResponseEntity<String> = restTemplate.exchange(url, HttpMethod.GET, HttpEntity<Void>(headers(htmx, roles)), String::class.java)

@@ -134,6 +134,12 @@ does not have to submit the origins; each entry is validated as an origin.
 The application page in the UI gets an editable list, under the same permission that edits the
 application.
 
+_Changed 2026-11-20:_ entries are starts of URLs, not origins only: `allowed_return_urls`,
+`SetApplicationReturnUrls`, matched by `ReturnUrlPrefix` (the same origin, and a path under the
+entry's at a `/` after resolving dot segments; a path hiding one behind percent-encoding never
+matches). An origin alone still allows the whole origin. The application page's "Form return
+addresses" section edits the list, one per line.
+
 Code changes:
 
 - `RequestStatus.AWAITING_INPUT`. `isCancellable` includes it. Neither the poller nor stale-job

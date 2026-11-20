@@ -23,6 +23,7 @@ reach this installation at. `default-expiry` (24h) and `max-expiry` (7d, at most
 long a job waits for the person, `link-lifetime` (15m) how long a link opens, and
 `session-idle-timeout` (60m) how long the person's session on the form lasts idle.
 `preview-concurrency` (4) bounds the previews a node renders at once, over all forms. The boot is refused when partition retention is too short to keep a waiting
-job that long. Return addresses are allowed per application, or through `allowed-origins` for
-callers without one. The migration is not rollback-compatible: an installation that has used the
+job that long. Where a form may send the person back to is set per application, on its page under Form return
+addresses: URLs a return address must start with (same origin, a path under the one given), or
+through `allowed-origins` for callers without one. The migration is not rollback-compatible: an installation that has used the
 feature cannot go back to an earlier release.

@@ -7,7 +7,7 @@ package app.epistola.suite.api.v1
 import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.applications.commands.CreateApplication
-import app.epistola.suite.applications.commands.SetApplicationReturnOrigins
+import app.epistola.suite.applications.commands.SetApplicationReturnUrls
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
@@ -253,7 +253,7 @@ class InteractiveGenerationApiIT : IntegrationTestBase() {
         mediator.releaseNext(variant.templateId.catalogId)
         if (featureOn) SaveFeatureToggle(tenant, KnownFeatures.INTERACTIVE_GENERATION, true).execute()
         val application = CreateApplication(tenant, "Case system", roles = setOf(TenantRole.DOCUMENT_GENERATOR)).execute()
-        SetApplicationReturnOrigins(tenant, application.id, listOf("https://cases.example.org")).execute()
+        SetApplicationReturnUrls(tenant, application.id, listOf("https://cases.example.org")).execute()
         Caller(tenant, CreateApiKey(tenant, "case", applicationId = application.id).execute().plaintextKey)
     }
 

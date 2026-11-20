@@ -27,7 +27,7 @@ import app.epistola.suite.documents.interactive.InteractiveGeneration
 import app.epistola.suite.documents.interactive.InteractiveGenerationProperties
 import app.epistola.suite.documents.interactive.InteractiveState
 import app.epistola.suite.documents.interactive.InteractiveTrigger
-import app.epistola.suite.documents.interactive.ReturnOriginPolicy
+import app.epistola.suite.documents.interactive.ReturnUrlPolicy
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.environments.DeploymentUsage
@@ -116,7 +116,7 @@ class GenerateDocumentHandler(
     private val mediator: Mediator,
     private val boundContract: BoundDataContract,
     private val interactiveProperties: InteractiveGenerationProperties,
-    private val originPolicy: ReturnOriginPolicy,
+    private val returnUrls: ReturnUrlPolicy,
     private val formLinks: InteractiveFormLinks,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<GenerateDocument, DocumentGenerationRequest> {
@@ -145,7 +145,7 @@ class GenerateDocumentHandler(
         val application = DocumentVisibility.submittingApplication()
 
         return jdbi.inTransaction<DocumentGenerationRequest, Exception> { handle ->
-            if (interactive != null) originPolicy.check(handle, command.tenantKey, application, interactive)
+            if (interactive != null) returnUrls.check(handle, command.tenantKey, application, interactive)
             val requestId = command.requestId
             val request = handle.createQuery(
                 """

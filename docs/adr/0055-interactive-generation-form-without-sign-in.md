@@ -74,10 +74,14 @@ the job is accepted. Data that does not validate is not rendered (the answer lis
 Each form gets one preview at a time and 20 a minute; each node renders `preview-concurrency` (4)
 at once over all forms, on the request thread, outside the job queue. Beyond that: 429.
 
-### 6. Where the person returns is the caller's, within allowed origins
+### 6. Where the person returns is the caller's, within allowed addresses
 
-A `returnUrl` or link must be on this installation's origin, the calling application's own list
-(ADR 0054), or, for a caller without an application, the installation's `allowed-origins`.
+A `returnUrl` or link must start with an allowed address: one of the calling application's own
+(ADR 0054, set on its page), or for a caller without an application one of the installation's
+`allowed-origins`, or this installation's own origin. "Starts with" means the same scheme, host and
+port, and a path under the entry's at a `/` after resolving dot segments (`ReturnUrlPrefix`); never
+a string prefix, which a look-alike host (`cases.example.org.evil.example`), a sibling path or a
+`..` would get past, and never a path that hides a dot segment behind percent-encoding.
 
 ### 7. The UI follows its own jobs by a token, never a bare id
 

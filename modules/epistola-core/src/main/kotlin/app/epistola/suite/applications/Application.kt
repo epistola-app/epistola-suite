@@ -22,9 +22,9 @@ import java.time.OffsetDateTime
  *   application: those from before applications existed, and those a caller without one (a bearer
  *   token) requests (ADR 0054). At most one application per tenant.
  * @property activeKeyCount Keys that are not revoked; set by the listing queries.
- * @property allowedReturnOrigins Origins (`scheme://host[:port]`) the application's interactive
- *   generation requests may send a person back to, or link to (contract ADR 0011). Where its own
- *   frontend lives; matched exactly.
+ * @property allowedReturnUrls The starts of the URLs the application's interactive generation
+ *   requests may send a person back to, or link to (contract ADR 0011): where its own frontend lives,
+ *   such as `https://cases.example.org/zaken`. Matched as [app.epistola.suite.documents.interactive.ReturnUrlPrefix].
  */
 data class Application(
     val id: ApplicationKey,
@@ -38,7 +38,7 @@ data class Application(
     val createdBy: UserKey?,
     val createdByDisplayName: String? = null,
     val activeKeyCount: Int = 0,
-    val allowedReturnOrigins: List<String> = emptyList(),
+    val allowedReturnUrls: List<String> = emptyList(),
 )
 
 /** Matches `applications.description`. */
@@ -47,7 +47,7 @@ const val MAX_APPLICATION_DESCRIPTION_LENGTH = 500
 /** The columns every application query selects, aliased from `applications a`. */
 internal const val APPLICATION_COLUMNS = """
     a.id, a.tenant_key, a.name, a.description, a.roles, a.sees_all_documents, a.owns_unattributed_documents, a.created_at, a.created_by,
-    a.allowed_return_origins,
+    a.allowed_return_urls,
     COALESCE(u.display_name, u.email) AS created_by_display_name,
     (SELECT COUNT(*) FROM api_keys k WHERE k.application_id = a.id AND k.revoked_at IS NULL) AS active_key_count
 """
@@ -70,7 +70,7 @@ internal fun ResultSet.toApplication(): Application = Application(
     createdBy = getString("created_by")?.let { UserKey.of(it) },
     createdByDisplayName = getString("created_by_display_name"),
     activeKeyCount = getInt("active_key_count"),
-    allowedReturnOrigins = ((getArray("allowed_return_origins")?.array as? Array<*>)?.toList() ?: emptyList()).filterIsInstance<String>(),
+    allowedReturnUrls = ((getArray("allowed_return_urls")?.array as? Array<*>)?.toList() ?: emptyList()).filterIsInstance<String>(),
 )
 
 /** Decodes a `VARCHAR[]` of role names; names no longer known are dropped. */

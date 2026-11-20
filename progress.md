@@ -116,9 +116,13 @@ the person (`GenerationJobTokens`); an environment following a draft renders tha
   missing; completed, the letter renders them. Demo suite 90/90. Checked live: REST request with
   `trigger: incomplete` → form → filled in → preview by itself → submit → job completed.
 - Noticed, untouched: (1) a catalog's data examples must be valid, so the demo example is complete;
-  "incomplete" is shown by leaving fields out. (2) Nothing dispatches `SetApplicationReturnOrigins`:
-  an application's allowed return origins have no screen or API, so an application can return only
-  to this installation. (3) Fixed (20 November): the demo `corporate` theme's page margins were `72`
+  "incomplete" is shown by leaving fields out. (2) Fixed (20 November): an application's return addresses
+  are set on its page (Form return addresses), as URL prefixes rather than origins:
+  `SetApplicationReturnUrls`, `applications.allowed_return_urls`, `ReturnUrlPrefix` (same origin, a
+  path under the entry's at a `/`, dot segments resolved, hidden ones refused). `ReturnUrlPrefixTest`
+  (6; a plain `startsWith` fails 2 of them, and the origin-alone look-alike), core
+  `InteractiveGenerationIntegrationTest` (a path entry allows only what lies under it), 3 new
+  `ApplicationHandlerTest` cases. No REST or MCP: the contract has no application resource. (3) Fixed (20 November): the demo `corporate` theme's page margins were `72`
   on each side, read as millimetres (`effectivePageSettingsMarginMm`), so every template taking the
   theme's margins rendered a 66 mm text column; now 25 mm. Demo suite 90/90; the objection letter
   fits one page. (4) The demo loader's toggle seeding has no

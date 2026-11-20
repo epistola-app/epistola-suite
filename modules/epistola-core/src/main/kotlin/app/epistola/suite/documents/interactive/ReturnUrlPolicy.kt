@@ -14,42 +14,41 @@ import org.springframework.stereotype.Component
 /**
  * Where a form may send the browser, and link to (contract ADR 0011, "Coming back"). A page on
  * Epistola's domain that forwards wherever a leaked key chooses would be an open redirect, so every
- * `returnUrl` and link must be on an allowed origin:
+ * `returnUrl` and link must start with an allowed [ReturnUrlPrefix]:
  *
- * - the submitting application's own `allowed_return_origins`, when the caller has an application
+ * - the submitting application's own `allowed_return_urls`, when the caller has an application
  *   (ADR 0054): where its frontend lives, so a leaked key can only send a browser back to its system;
- * - the installation's `epistola.generation.interactive.allowed-origins`, for a caller without one;
- * - always this installation's own origin, which the editor's "try it" flow returns to.
+ * - the installation's `epistola.generation.interactive.allowed-origins`, for a caller without one
+ *   (a person in the web UI, a bearer token, the demo secret);
+ * - always this installation's own origin, which the web UI's "Generate document" returns to.
  */
 @Component
-class ReturnOriginPolicy(private val properties: InteractiveGenerationProperties) {
+class ReturnUrlPolicy(private val properties: InteractiveGenerationProperties) {
 
-    /** Refuses the first URL of [interactive] that is not on an allowed origin, with `url-not-allowed`. */
+    /** Refuses the first URL of [interactive] that starts with no allowed prefix, with `url-not-allowed`. */
     fun check(handle: Handle, tenantKey: TenantKey, application: ApplicationKey?, interactive: InteractiveGeneration) {
         val urls = interactive.urls()
         if (urls.isEmpty()) return
-        val allowed = allowedOrigins(handle, tenantKey, application)
+        val allowed = allowedPrefixes(handle, tenantKey, application)
         urls.forEach { (field, url) ->
-            val origin = Origins.of(url)
-            if (origin == null || origin !in allowed) {
-                throw ValidationException(field, "${origin ?: url} is not an allowed origin", ValidationCode.URL_NOT_ALLOWED)
+            if (allowed.none { it.matches(url) }) {
+                throw ValidationException(field, "$url is not an allowed address", ValidationCode.URL_NOT_ALLOWED)
             }
         }
     }
 
-    private fun allowedOrigins(handle: Handle, tenantKey: TenantKey, application: ApplicationKey?): Set<String> {
+    private fun allowedPrefixes(handle: Handle, tenantKey: TenantKey, application: ApplicationKey?): List<ReturnUrlPrefix> {
         val configured = if (application == null) {
-            properties.normalisedAllowedOrigins
+            properties.normalisedAllowedOrigins.toList()
         } else {
-            handle.createQuery("SELECT allowed_return_origins FROM applications WHERE tenant_key = :tenantKey AND id = :id")
+            handle.createQuery("SELECT allowed_return_urls FROM applications WHERE tenant_key = :tenantKey AND id = :id")
                 .bind("tenantKey", tenantKey)
                 .bind("id", application)
                 .mapTo(Array<String>::class.java)
                 .findOne()
                 .orElse(emptyArray())
-                .mapNotNull(Origins::normalise)
-                .toSet()
+                .toList()
         }
-        return configured + listOfNotNull(properties.ownOrigin)
+        return (configured + listOfNotNull(properties.ownOrigin)).mapNotNull(ReturnUrlPrefix::parse)
     }
 }

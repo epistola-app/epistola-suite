@@ -5,7 +5,8 @@
 package app.epistola.suite.documents
 
 import app.epistola.suite.applications.commands.CreateApplication
-import app.epistola.suite.applications.commands.SetApplicationReturnOrigins
+import app.epistola.suite.applications.commands.SetApplicationReturnUrls
+import app.epistola.suite.applications.queries.GetApplication
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.GenerationRequestKey
@@ -41,6 +42,7 @@ import app.epistola.suite.documents.queries.PreviewInteractiveForm
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PrincipalApplication
 import app.epistola.suite.security.TenantRole
@@ -283,27 +285,42 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `an application is held to its own return origins, not the installation's`() = withReleasedTemplate { setup ->
-        val caseSystem = applicationPrincipal(setup.tenant.id, origins = listOf("https://Cases.Example.org/"))
+    fun `an application is held to its own return addresses, not the installation's`() = withReleasedTemplate { setup ->
+        val caseSystem = applicationPrincipal(setup.tenant.id, urls = listOf("https://Cases.Example.org/"))
         val back = InteractiveGeneration(InteractiveTrigger.INCOMPLETE, returnUrl = "https://cases.example.org/zaken/Z-1")
 
         val accepted = runAs(caseSystem) { setup.generate("{}", back).execute() }
         assertThat(accepted.status).isEqualTo(RequestStatus.AWAITING_INPUT)
 
-        val other = applicationPrincipal(setup.tenant.id, origins = emptyList())
+        val other = applicationPrincipal(setup.tenant.id, urls = emptyList())
         val error = assertThrows<ValidationException> { runAs(other) { setup.generate("{}", back).execute() } }
         assertThat(error.code).isEqualTo(ValidationCode.URL_NOT_ALLOWED)
     }
 
     @Test
-    fun `an application's return origins are origins only`() = withReleasedTemplate { setup ->
+    fun `an application's return address with a path allows only what lies under that path`() = withReleasedTemplate { setup ->
+        val caseSystem = applicationPrincipal(setup.tenant.id, urls = listOf("https://cases.example.org/zaken"))
+
+        val under = InteractiveGeneration(InteractiveTrigger.INCOMPLETE, returnUrl = "https://cases.example.org/zaken/Z-1")
+        assertThat(runAs(caseSystem) { setup.generate("{}", under).execute() }.status).isEqualTo(RequestStatus.AWAITING_INPUT)
+
+        listOf("https://cases.example.org/admin", "https://cases.example.org/zakenlijst", "https://cases.example.org/zaken/../admin").forEach { url ->
+            val error = assertThrows<ValidationException> { runAs(caseSystem) { setup.generate("{}", InteractiveGeneration(InteractiveTrigger.INCOMPLETE, returnUrl = url)).execute() } }
+            assertThat(error.code).describedAs(url).isEqualTo(ValidationCode.URL_NOT_ALLOWED)
+        }
+    }
+
+    @Test
+    fun `an application's return addresses are http addresses without a query, stored normalised`() = withReleasedTemplate { setup ->
         val application = execute(CreateApplication(tenantKey = setup.tenant.id, name = "Cases", roles = TenantRole.entries.toSet())).id
 
         val error = assertThrows<ValidationException> {
-            execute(SetApplicationReturnOrigins(setup.tenant.id, application, listOf("https://cases.example.org/zaken")))
+            execute(SetApplicationReturnUrls(setup.tenant.id, application, listOf("https://cases.example.org/zaken", "https://cases.example.org/zaken?tab=1")))
         }
+        assertThat(error.field).isEqualTo("urls[1]")
 
-        assertThat(error.field).isEqualTo("origins[0]")
+        execute(SetApplicationReturnUrls(setup.tenant.id, application, listOf("https://Cases.Example.org/zaken/", "https://cases.example.org/zaken")))
+        assertThat(withMediator { GetApplication(setup.tenant.id, application).query() }!!.allowedReturnUrls).containsExactly("https://cases.example.org/zaken")
     }
 
     @Test
@@ -543,11 +560,11 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
         assertThat(job(request).status).isEqualTo(RequestStatus.AWAITING_INPUT)
     }
 
-    /** A caller authenticated as a new application of [tenant] that allows [origins], with every role. */
-    private fun applicationPrincipal(tenant: TenantKey, origins: List<String>): EpistolaPrincipal {
+    /** A caller authenticated as a new application of [tenant] that allows [urls], with every role. */
+    private fun applicationPrincipal(tenant: TenantKey, urls: List<String>): EpistolaPrincipal {
         val application = withMediator {
             val id = CreateApplication(tenantKey = tenant, name = "Case system", roles = TenantRole.entries.toSet()).execute().id
-            SetApplicationReturnOrigins(tenant, id, origins).execute()
+            SetApplicationReturnUrls(tenant, id, urls).execute()
             id
         }
         val userId = UserKey.of(UUID.randomUUID())

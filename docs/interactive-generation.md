@@ -106,11 +106,21 @@ Under `epistola.generation.interactive`:
 `epistola.partitions.retention-months` must keep that partition for the longest wait. The boot is
 refused when it would not.
 
-**Return origins.** A `returnUrl` or link must be on an allowed origin: this installation's own,
-the calling application's own list (`applications.allowed_return_origins`, ADR 0054), or, for a
-caller without an application, `allowed-origins`. Anything else is refused with `url-not-allowed`.
-An application's list has no screen or API yet, so an application can return only to this
-installation for now.
+**Return addresses.** A `returnUrl` or link must start with an allowed address
+(`ReturnUrlPolicy`):
+
+- the calling application's own list, set on its page under **Form return addresses**
+  (`applications.allowed_return_urls`, ADR 0054), such as `https://cases.example.org/zaken`;
+- for a caller without an application (a person in the web UI, a bearer token, the demo secret),
+  the installation's `allowed-origins`;
+- always this installation's own origin, which the web UI's "Generate document" returns to.
+
+"Starts with" is not a string prefix (`ReturnUrlPrefix`): the scheme, host and port must be the
+entry's exactly, and the path, with dot segments resolved, must be the entry's path or lie under it
+at a `/`. So `https://cases.example.org/zaken` allows `/zaken/Z-1` but not `/zakenlijst`,
+`/zaken/../admin` or `https://cases.example.org.evil.example/zaken`; a path hiding a dot segment
+or separator behind `%2e`, `%2f`, `%5c` or a backslash never matches. An entry of an origin alone
+allows every page there. Anything else is refused with `url-not-allowed`.
 
 **Rollback.** The migration that adds forms is not rollback-compatible: an installation that has
 used the feature cannot go back to an earlier release.
