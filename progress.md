@@ -118,9 +118,10 @@ the person (`GenerationJobTokens`); an environment following a draft renders tha
 - Noticed, untouched: (1) a catalog's data examples must be valid, so the demo example is complete;
   "incomplete" is shown by leaving fields out. (2) Nothing dispatches `SetApplicationReturnOrigins`:
   an application's allowed return origins have no screen or API, so an application can return only
-  to this installation. (3) The demo `corporate` theme's page margins are `72` on each side, read as
-  millimetres (`effectivePageSettingsMarginMm`), so every template taking the theme's margins renders
-  a 66 mm text column; 72 pt (25 mm) was surely meant. (4) The demo loader's toggle seeding has no
+  to this installation. (3) Fixed (20 November): the demo `corporate` theme's page margins were `72`
+  on each side, read as millimetres (`effectivePageSettingsMarginMm`), so every template taking the
+  theme's margins rendered a 66 mm text column; now 25 mm. Demo suite 90/90; the objection letter
+  fits one page. (4) The demo loader's toggle seeding has no
   test of its own (seen working live).
 - Noticed, untouched: the dialog's "Latest release" option uses `CatalogDraftBar.latestPublished`, a
   release cut in this installation, so an installed catalog (the demo's) offers only its

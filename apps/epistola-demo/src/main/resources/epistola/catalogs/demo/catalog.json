@@ -42,7 +42,7 @@
   "release": {
     "version": "6.10.0",
     "releasedAt": "2026-11-20T00:00:00Z",
-    "fingerprint": "v6:af2bfb2de2f89ef47d2069c3a618580d3601234741cb1943e0f7598a1749fa24"
+    "fingerprint": "v6:1c7ec4a80dba02ccd6078e4f675bb1f7559a3dd1dcf26d77f22d6c455b4bb6a5"
   },
   "catalogDependencies": [
     {
@@ -84,7 +84,7 @@
       "key": "corporate",
       "name": "Corporate Theme",
       "description": "A clean corporate theme with professional styling.",
-      "updatedAt": "2026-05-17T00:00:00Z",
+      "updatedAt": "2026-11-20T00:00:00Z",
       "detailUrl": "./resources/themes/corporate.json"
     },
     {

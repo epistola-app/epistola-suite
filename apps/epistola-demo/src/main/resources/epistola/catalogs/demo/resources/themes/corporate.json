@@ -18,10 +18,10 @@
       "format": "A4",
       "orientation": "portrait",
       "margins": {
-        "top": 72,
-        "right": 72,
-        "bottom": 72,
-        "left": 72
+        "top": 25,
+        "right": 25,
+        "bottom": 25,
+        "left": 25
       }
     },
     "blockStylePresets": {
