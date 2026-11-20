@@ -14,6 +14,10 @@ contract's descriptions as help and pre-filled with what the caller sent, beside
 renders once nothing required is missing, and validates on the server before the job renders. Cancelled jobs say why
 (`cancelReason`), and a job with a form gets a `cancelled` line on the collect stream.
 
+The demo catalog's Objection Decision template (6.10.0) is built to try it, and the demo tenant has
+the toggle on. How it works, its settings and its security model are in
+`docs/interactive-generation.md` and ADR 0055.
+
 Operators: the feature needs `epistola.generation.interactive.public-base-url`, the address people
 reach this installation at. `default-expiry` (24h) and `max-expiry` (7d, at most 30 days) bound how
 long a job waits for the person, `link-lifetime` (15m) how long a link opens, and

@@ -1,0 +1,489 @@
+{
+  "schemaVersion": 8,
+  "resource": {
+    "type": "template",
+    "key": "objection-decision",
+    "name": "Objection Decision",
+    "description": "An objection decision for interactive generation (alpha, the 'interactive-generation' feature). Generate it with a form: with 'Always' a person reviews and edits the letter's data, with a preview, before it renders; a caller that sends the data without the motivation and the decision date gets a form asking for exactly those. Its data contract uses titles, descriptions, a date, a choice, a yes/no field, a list and a nested group.",
+    "pdfaEnabled": false,
+    "themeKey": "corporate",
+    "dataModel": {
+      "type": "object",
+      "properties": {
+        "caseReference": {
+          "type": "string",
+          "title": "Case reference",
+          "description": "The reference the applicant quotes in letters about this case",
+          "maxLength": 40
+        },
+        "applicant": {
+          "type": "object",
+          "title": "Applicant",
+          "description": "The person who lodged the objection",
+          "properties": {
+            "name": {
+              "type": "string",
+              "title": "Full name",
+              "maxLength": 120
+            },
+            "email": {
+              "type": "string",
+              "format": "email",
+              "title": "Email address",
+              "maxLength": 200
+            }
+          },
+          "required": [
+            "name"
+          ]
+        },
+        "objectionReceivedOn": {
+          "type": "string",
+          "format": "date",
+          "title": "Objection received on"
+        },
+        "decision": {
+          "type": "string",
+          "title": "Decision",
+          "description": "What the objection committee decided",
+          "enum": [
+            "upheld",
+            "partly upheld",
+            "rejected"
+          ]
+        },
+        "grounds": {
+          "type": "array",
+          "title": "Grounds considered",
+          "description": "Each ground of the objection the decision answers",
+          "items": {
+            "type": "string",
+            "title": "ground",
+            "maxLength": 200
+          }
+        },
+        "motivation": {
+          "type": "string",
+          "title": "Motivation",
+          "description": "Why the committee decided this, in words the applicant understands",
+          "maxLength": 2000
+        },
+        "decisionDate": {
+          "type": "string",
+          "format": "date",
+          "title": "Date of decision"
+        },
+        "appealPossible": {
+          "type": "boolean",
+          "title": "The applicant can appeal",
+          "description": "Leave unticked when this decision is final"
+        }
+      },
+      "required": [
+        "caseReference",
+        "applicant",
+        "objectionReceivedOn",
+        "decision",
+        "motivation",
+        "decisionDate"
+      ]
+    },
+    "dataExamples": [
+      {
+        "key": "default",
+        "name": "Decision written",
+        "data": {
+          "caseReference": "BZ-2026-0142",
+          "applicant": {
+            "name": "Jane Jansen",
+            "email": "jane@example.com"
+          },
+          "objectionReceivedOn": "2026-10-02",
+          "decision": "partly upheld",
+          "grounds": [
+            "The assessment used the wrong floor area",
+            "The notice arrived after the deadline"
+          ],
+          "motivation": "The floor area was measured again and found to be 12 square metres smaller, so the assessment is lowered. The notice was sent on time, so that ground does not change the decision.",
+          "decisionDate": "2026-11-20",
+          "appealPossible": true
+        }
+      }
+    ],
+    "templateModel": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": {
+        "type": "inherit"
+      },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": [
+            "s-root-children"
+          ]
+        },
+        "n-heading": {
+          "id": "n-heading",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 1
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Decision on your objection"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-reference": {
+          "id": "n-reference",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Case reference: "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "caseReference"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "stylePreset": "muted"
+        },
+        "n-greeting": {
+          "id": "n-greeting",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Dear "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "applicant.name"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": ","
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-intro": {
+          "id": "n-intro",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "On "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "$formatDate(objectionReceivedOn, 'd MMMM yyyy')"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": " we received your objection. Having considered it, we have decided that your objection is "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "decision"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": "."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-grounds-text": {
+          "id": "n-grounds-text",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "We considered the following grounds: "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "$join(grounds, '; ')"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": "."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-grounds": {
+          "id": "n-grounds",
+          "type": "conditional",
+          "slots": [
+            "n-grounds:body"
+          ],
+          "props": {
+            "condition": {
+              "raw": "$count(grounds) > 0",
+              "language": "jsonata"
+            }
+          }
+        },
+        "n-motivation-heading": {
+          "id": "n-motivation-heading",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "heading",
+                  "attrs": {
+                    "level": 2
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Motivation"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-motivation": {
+          "id": "n-motivation",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "motivation"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-appeal-yes": {
+          "id": "n-appeal-yes",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "You can appeal against this decision within six weeks of "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "$formatDate(decisionDate, 'd MMMM yyyy')"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": "."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-appeal-no": {
+          "id": "n-appeal-no",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "This decision is final."
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-appeal": {
+          "id": "n-appeal",
+          "type": "conditional",
+          "slots": [
+            "n-appeal:body",
+            "n-appeal:else"
+          ],
+          "props": {
+            "condition": {
+              "raw": "appealPossible = true",
+              "language": "jsonata"
+            }
+          }
+        },
+        "n-date": {
+          "id": "n-date",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Date of decision: "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "$formatDate(decisionDate, 'd MMMM yyyy')"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "stylePreset": "muted"
+        }
+      },
+      "slots": {
+        "n-grounds:body": {
+          "id": "n-grounds:body",
+          "nodeId": "n-grounds",
+          "name": "body",
+          "children": [
+            "n-grounds-text"
+          ]
+        },
+        "n-appeal:body": {
+          "id": "n-appeal:body",
+          "nodeId": "n-appeal",
+          "name": "body",
+          "children": [
+            "n-appeal-yes"
+          ]
+        },
+        "n-appeal:else": {
+          "id": "n-appeal:else",
+          "nodeId": "n-appeal",
+          "name": "else",
+          "children": [
+            "n-appeal-no"
+          ]
+        },
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": [
+            "n-heading",
+            "n-reference",
+            "n-greeting",
+            "n-intro",
+            "n-grounds",
+            "n-motivation-heading",
+            "n-motivation",
+            "n-appeal",
+            "n-date"
+          ]
+        }
+      }
+    },
+    "variants": [
+      {
+        "key": "default",
+        "name": "Default",
+        "attributes": {},
+        "isDefault": true
+      }
+    ]
+  }
+}

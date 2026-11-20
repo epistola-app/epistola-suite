@@ -123,29 +123,30 @@ that implement it live in [`modules/rest-api`](../modules/rest-api).
 
 ## Operating an installation
 
-| Doc                                                                         | Status   | What it covers                                                           |
-| --------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------ |
-| [Deployment](deployment.md)                                                 | Current  | Deploying with the `charts/epistola` Helm chart.                         |
-| [Upgrades](upgrades.md)                                                     | Current  | Additive vs breaking upgrades, rollback, and upgrading 1.x to 2.0.       |
-| [Load test results](load-test-results.md)                                   | Current  | Running log of measured throughput, by named hardware profile.           |
-| [Metrics & observability](metrics.md)                                       | Current  | Exposed metrics and wiring your own OpenTelemetry pipeline.              |
-| [Application logs](application-logs.md)                                     | Current  | Persisting Logback events into a bounded, queryable table.               |
-| [Generation statistics](generation-statistics.md)                           | Current  | Documents and previews per tenant, kept after documents are deleted.     |
-| [Audit log](audit-log.md)                                                   | Current  | The PII-free, append-only record of who did and read what.               |
-| [Version check](version-check.md)                                           | Current  | The default-on daily release and support check, and how to disable it.   |
-| [Data shared with Epistola](outbound-traffic.md)                            | Current  | What an installation shares, every outbound call, the support badge.     |
-| [Epistola support](support.md)                                              | Alpha    | Connecting to Epistola support: applying, services, privacy, telemetry.  |
-| [Support service protocol](support-protocol.md)                             | Alpha    | How an installation registers with Epistola support, tokens, services.   |
-| [Support connections for partners](support-partners.md)                     | Alpha    | The protocol a partner implements: requests, usage, escalation.          |
-| [Catalog mirror](catalog-mirror.md)                                         | Alpha    | Released catalogs a tenant shares with Epistola for release checks.      |
-| [SBOM](sbom.md)                                                             | Current  | CycloneDX SBOM generation for backend and frontend, and scanning it.     |
-| [Load testing](loadtesting.md)                                              | Current  | The embedded load-test feature for measuring installation capacity.      |
-| [Collect](collect.md)                                                       | Current  | How the collect feed delivers every result once, and the lock it uses.   |
-| [Collect performance](collect-performance.md)                               | Record   | Measured limits of the v0.3 collect mechanism.                           |
-| [Interactive generation load impact](interactive-generation-load-impact.md) | Record   | What forms cost the pipeline, with and without them; what to fix.        |
-| [Adaptive batch polling logs](adaptive-batch-logging.md)                    | Record   | Sample log output showing the shape of adaptive-poll logging.            |
-| [v0.4 coordinated rebalance](v04-coordinated-rebalance.md)                  | Proposed | Closing the collect affinity gap with a coordinated ring handover.       |
-| [v0.5 push-based collect](v05-push-collect.md)                              | Proposed | Push-based collect with a self-coordinating cluster, no external broker. |
+| Doc                                                                         | Status   | What it covers                                                                                          |
+| --------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------- |
+| [Deployment](deployment.md)                                                 | Current  | Deploying with the `charts/epistola` Helm chart.                                                        |
+| [Upgrades](upgrades.md)                                                     | Current  | Additive vs breaking upgrades, rollback, and upgrading 1.x to 2.0.                                      |
+| [Load test results](load-test-results.md)                                   | Current  | Running log of measured throughput, by named hardware profile.                                          |
+| [Metrics & observability](metrics.md)                                       | Current  | Exposed metrics and wiring your own OpenTelemetry pipeline.                                             |
+| [Application logs](application-logs.md)                                     | Current  | Persisting Logback events into a bounded, queryable table.                                              |
+| [Generation statistics](generation-statistics.md)                           | Current  | Documents and previews per tenant, kept after documents are deleted.                                    |
+| [Audit log](audit-log.md)                                                   | Current  | The PII-free, append-only record of who did and read what.                                              |
+| [Version check](version-check.md)                                           | Current  | The default-on daily release and support check, and how to disable it.                                  |
+| [Data shared with Epistola](outbound-traffic.md)                            | Current  | What an installation shares, every outbound call, the support badge.                                    |
+| [Epistola support](support.md)                                              | Alpha    | Connecting to Epistola support: applying, services, privacy, telemetry.                                 |
+| [Support service protocol](support-protocol.md)                             | Alpha    | How an installation registers with Epistola support, tokens, services.                                  |
+| [Support connections for partners](support-partners.md)                     | Alpha    | The protocol a partner implements: requests, usage, escalation.                                         |
+| [Catalog mirror](catalog-mirror.md)                                         | Alpha    | Released catalogs a tenant shares with Epistola for release checks.                                     |
+| [SBOM](sbom.md)                                                             | Current  | CycloneDX SBOM generation for backend and frontend, and scanning it.                                    |
+| [Load testing](loadtesting.md)                                              | Current  | The embedded load-test feature for measuring installation capacity.                                     |
+| [Collect](collect.md)                                                       | Current  | How the collect feed delivers every result once, and the lock it uses.                                  |
+| [Collect performance](collect-performance.md)                               | Record   | Measured limits of the v0.3 collect mechanism.                                                          |
+| [Interactive generation](interactive-generation.md)                         | Alpha    | A person completes a document's data in a form before it renders: the flow, the form, the UI, settings. |
+| [Interactive generation load impact](interactive-generation-load-impact.md) | Record   | What forms cost the pipeline, with and without them; what to fix.                                       |
+| [Adaptive batch polling logs](adaptive-batch-logging.md)                    | Record   | Sample log output showing the shape of adaptive-poll logging.                                           |
+| [v0.4 coordinated rebalance](v04-coordinated-rebalance.md)                  | Proposed | Closing the collect affinity gap with a coordinated ring handover.                                      |
+| [v0.5 push-based collect](v05-push-collect.md)                              | Proposed | Push-based collect with a self-coordinating cluster, no external broker.                                |
 
 ## Feature modules
 

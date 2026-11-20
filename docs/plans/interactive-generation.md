@@ -1,7 +1,9 @@
 # Plan: interactive generation, version 1
 
-> **Status:** Design, 2026-11-19. Not built yet. Implements contract 2.1.0's
-> interactive generation (contract ADR 0011, alpha).
+> **Status:** Record. Designed 2026-11-19, built (alpha) by 2026-11-20. Implements contract 2.1.0's
+> interactive generation (contract ADR 0011, alpha). The shipped behaviour is described in
+> [`docs/interactive-generation.md`](../interactive-generation.md); the security model in
+> [ADR 0055](../adr/0055-interactive-generation-form-without-sign-in.md).
 
 Contract 2.1.0 adds `interactive` to `generateDocument` (contract ADR 0011, alpha). The caller sends
 the data it has. When data is missing, or always when the caller asks, the job waits in
@@ -318,7 +320,12 @@ Tests: `GenerationJobTokensIT` (another person, expiry, tampering, a form sessio
 checks shown failing without them) and `TemplateGenerationHandlerTest` (the action and dialog, both
 flows over HTTP, and the 404s; shown failing with a bare id accepted and with the user check removed).
 
-### 6. Demo, docs, changelog
+### 6. Demo, docs, changelog — done
+
+_Built 2026-11-20:_ the demo catalog's `objection-decision` template (6.10.0) and the demo tenant's
+toggle; `docs/interactive-generation.md`; ADR 0055. A catalog's data examples must be valid, so the
+example is complete: the form asks for `motivation` and `decisionDate` when a caller leaves them out
+(`DemoObjectionDecisionIntegrationTest`), and with `always` a person reviews all of it.
 
 - Demo catalog: a template whose contract has required fields that the example leaves empty, such
   as the ADR's objection decision with `motivation` and `decisionDate`. Bump `release.version` and

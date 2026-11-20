@@ -79,6 +79,7 @@ class DemoLoader(
                     ensureDemoCatalog()
                     ensureDemoBanner()
                     ensureQualityDemo()
+                    ensureInteractiveGenerationDemo()
                 }
             }
         } catch (e: Exception) {
@@ -156,6 +157,23 @@ class DemoLoader(
             ),
         )
         if (seeded) log.info("Seeded demo site banner")
+    }
+
+    /**
+     * Turns interactive generation (alpha) on for the demo tenant, so the demo catalog's
+     * `objection-decision` template can be generated with a form: from its page ("Generate document",
+     * ask for the data in a form) or through the REST API with `interactive`. Forms also need
+     * `epistola.generation.interactive.public-base-url`, the address people reach this installation
+     * at; without it the dialog offers no form and a request's `interactive` is ignored. An upsert, so safe
+     * on every boot.
+     */
+    private fun ensureInteractiveGenerationDemo() {
+        val tenantKey = TenantKey.of(DEMO_TENANT_ID)
+        try {
+            mediator.send(SaveFeatureToggle(tenantKey, KnownFeatures.INTERACTIVE_GENERATION, enabled = true))
+        } catch (e: Exception) {
+            log.warn("Could not turn interactive generation on for the demo reason=\"{}\"", e.message)
+        }
     }
 
     /**
