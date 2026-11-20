@@ -38,8 +38,9 @@ import java.util.UUID
 
 /**
  * The interactive generation form in a browser (contract ADR 0011): the link opens the form with the
- * fields its data contract asks for, pre-filled; filling one in, previewing and submitting work under
- * the strict CSP, and the person lands on the page saying the document is on its way.
+ * fields its data contract asks for, named in words and pre-filled; filling one in, previewing and
+ * submitting work under the strict CSP, and the person lands on the page saying the document is on
+ * its way. A field left empty is marked only once the person tries to go on.
  */
 class InteractiveFormUiTest : BasePlaywrightTest() {
 
@@ -54,12 +55,14 @@ class InteractiveFormUiTest : BasePlaywrightTest() {
         gotoAndReady(request.interactive!!.url!!.substringAfter("https://suite.test"))
 
         assertThat(page.getByTestId("form-title")).hasText("Letter, case Z-1")
-        val name = page.locator("#dc-field-name")
-        assertThat(name).hasValue("Jane")
-        page.locator("#dc-field-motivation").fill("Because.")
-        page.locator("#dc-field-motivation").blur()
+        assertThat(page.locator("label[for=field-name]")).containsText("Name")
+        assertThat(page.locator("#field-name")).hasValue("Jane")
+        assertThat(page.locator("[data-form-progress]")).hasText("1 required field left")
+        page.locator("#field-motivation").fill("Because.")
+        page.locator("#field-motivation").blur()
+        assertThat(page.locator("[data-form-progress]")).hasText("Everything required is filled in.")
 
-        page.getByTestId("form-preview").click()
+        // Wide screens render the preview by itself once nothing required is missing.
         assertThat(page.locator("[data-form-preview-frame]")).isVisible()
 
         page.getByTestId("form-submit").click()
@@ -71,10 +74,25 @@ class InteractiveFormUiTest : BasePlaywrightTest() {
         val request = waitingRequest()
 
         gotoAndReady(request.interactive!!.url!!.substringAfter("https://suite.test"))
-        page.getByTestId("form-preview").click()
+        // Nothing marked yet: the person has not been to the empty field.
+        assertThat(page.locator("#field-motivation-error")).hasCount(0)
+        page.getByTestId("form-preview-refresh").click()
 
         assertThat(page.locator("[data-form-preview-message]")).hasText("Fill in the marked fields to see a preview.")
         assertThat(page.locator("[data-form-preview-frame]")).isHidden()
+        assertThat(page.locator("#field-motivation-error")).isVisible()
+    }
+
+    @Test
+    fun `submitting with a required field empty marks it, without leaving the page`() {
+        val request = waitingRequest()
+
+        gotoAndReady(request.interactive!!.url!!.substringAfter("https://suite.test"))
+        page.getByTestId("form-submit").click()
+
+        assertThat(page.locator("#field-motivation-error")).hasText("Fill this in.")
+        assertThat(page.locator("#field-motivation")).isFocused()
+        assertThat(page.getByTestId("form-closed")).hasCount(0)
     }
 
     /** A request waiting for input on a released template whose contract requires `name` and `motivation`. */

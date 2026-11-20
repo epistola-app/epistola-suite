@@ -96,6 +96,16 @@ the person (`GenerationJobTokens`); an environment following a draft renders tha
   a form session, a bare id and another tenant. Shown failing without the user check, without the
   expiry check, and with a bare id accepted. Checked by hand on the demo app (both flows, the PDF,
   edited fields). Not covered: a Playwright test of the dialog and the job's page in a browser.
+- ✅ The form for the person filling it in (20 November): `data-form/respondent-form.ts` replaces
+  the example form on the public page — fields named in words, descriptions as help, groups open,
+  lists with add/remove, typed inputs; empty required fields marked only once left, previewed or
+  submitted (problems carry a `kind`); the preview beside the fields renders by itself when nothing
+  required is missing; a count of required fields left. `respondent-form.test.ts` (13),
+  `data-form-lib.test.ts` (the list's server problem cleared once an item is added; shown failing
+  without the fix), `InteractiveFormUiTest` (3, incl. a submit with a field left empty). Checked by
+  screenshot at 1400 px and 390 px on the demo invoice.
+- Noticed, untouched: the form's field order is PostgreSQL `jsonb` key order (shortest key first),
+  not the contract's — fixed next, separately. A `date-time` field is a plain text input.
 - Noticed, untouched: the dialog's "Latest release" option uses `CatalogDraftBar.latestPublished`, a
   release cut in this installation, so an installed catalog (the demo's) offers only its
   environments. The API tab has the same limit. The REST `downloadDocument` puts the stored filename

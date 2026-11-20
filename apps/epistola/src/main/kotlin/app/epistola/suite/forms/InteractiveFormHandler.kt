@@ -172,9 +172,13 @@ class InteractiveFormHandler(
         is FormDefinition.Generated -> mapOf("kind" to definition.kind, "schema" to definition.schema)
     }
 
-    /** The analysis as the page marks fields: a JSON Pointer and a message for each problem. */
-    private fun problems(analysis: TemplateDataAnalysis): List<Map<String, String>> = analysis.missingFields.filter { it.required }.map { mapOf("path" to it.path, "message" to "Required") } +
-        analysis.invalidFields.map { mapOf("path" to it.path, "message" to it.message) }
+    /**
+     * The analysis as the page marks fields: a JSON Pointer, a message and a kind for each problem.
+     * The page holds back a `missing` field's mark until the person has been there or tried to
+     * submit; an `invalid` value the caller sent shows at once.
+     */
+    private fun problems(analysis: TemplateDataAnalysis): List<Map<String, String>> = analysis.missingFields.filter { it.required }.map { mapOf("path" to it.path, "message" to "Fill this in.", "kind" to "missing") } +
+        analysis.invalidFields.map { mapOf("path" to it.path, "message" to it.message, "kind" to "invalid") }
 
     private fun sessionCookie(requestId: GenerationRequestKey, session: FormSession): ResponseCookie = ResponseCookie.from(SESSION_COOKIE, session.token)
         .path("/forms/${requestId.value}")

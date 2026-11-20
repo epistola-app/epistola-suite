@@ -235,6 +235,18 @@ that takes the schema and the pre-filled data from a `data-*` JSON island, rende
 posts JSON back with the token. It has no inline script, as the CSP requires. Required fields are
 marked, and the analysis's missing fields are highlighted, but every field stays editable.
 
+_Changed 2026-11-20:_ the fields are rendered for the person filling them in, not with the data
+contract editor's example form (a tool for authors, with types, counters and raw keys):
+`data-form/respondent-form.ts`. Labels come from the schema's `title`, else the key in words
+("invoiceNumber" → "Invoice number"); the `description` is the help text; groups are always open;
+lists have add and remove; inputs follow the type and format (email, date, number, a select or
+radio buttons for an `enum`, a checkbox for a boolean). An empty required field is marked once the
+person has left it, previewed or tried to submit (the server's problems now carry a `kind`,
+`missing` or `invalid`; an invalid value the caller sent shows at once). The page puts the fields
+beside a preview that stays in view on wide screens and renders by itself once nothing required is
+missing; the actions stay at the bottom with a count of the required fields left; the expiry is in
+the reader's own time.
+
 **Submit.** The server validates (the browser is not trusted). Errors re-render the form with the
 messages for each path. On success it redirects to `returnUrl` with `epistolaRequestId` and
 `epistolaRequestStatus`: appended after the existing query, replacing a parameter of the same name,
