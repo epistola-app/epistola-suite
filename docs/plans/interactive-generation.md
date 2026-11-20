@@ -25,8 +25,9 @@ and only repeats its findings where they shape a step.
 - A PDF preview on the form, authorised by the same token (step 4).
 - An expiry sweep, a default and maximum expiry, and allowed return/link origins kept per
   application (step 2).
-- **Try it from the UI**: start an interactive job from the template page against an environment,
-  open the form in a new tab, and watch the job in generation history.
+- **Generate from the UI** (_changed_ 2026-11-20): "Generate document" on the template page, with a
+  form as an option; the form opens in the same tab and returns to the template page, which follows
+  the job to its PDF.
 - A per-tenant alpha feature toggle.
 
 **Deferred (the ADR allows each to come later)**
@@ -269,26 +270,33 @@ pane beside the fields.
   a missing field, submits, and lands on the return URL. A guard test that `/forms/**` is reachable
   without a session and that nothing else newly is.
 
-### 5. Try it from the UI (apps/epistola)
+### 5. Generate from the UI (apps/epistola) — done
 
-The UI cannot call `/api/**`, so it dispatches the same `GenerateDocument` command through a UI
-route.
+_Changed 2026-11-20:_ a general "Generate document" action rather than a form-only one, and no job
+page in generation history (which only holds statistics today).
 
-- On the template page, add a **Try with a form** action, visible when the toggle is on and the
-  person has `DOCUMENT_GENERATE`. The dialog (`ui-page` skill, dialog-form pattern) asks for the
-  environment, the variant (defaulting to the template's default), the trigger, and optional starting
-  data (an editor seeded from a data example, or empty).
-- It submits to `POST /tenants/{tenantId}/…/templates/{templateKey}/interactive-jobs`, which
-  dispatches `GenerateDocument(interactive = …)`. `returnUrl` is the job's page in generation
-  history, so the full round trip is exercised, including the return parameters.
-- The response opens `interactive.url` in a new tab through a delegated listener on a `data-*` hook.
-  If nothing was asked (`incomplete` with complete data), it goes straight to the job.
-- Generation history shows `awaiting-input` and `cancelled` with a reason. A waiting job gets an
-  **Open form** link (the URL is fetched when the page renders, never stored client-side) and a
-  **Cancel** action. A finished interactive job shows its `data` and `editedFields`.
+The UI cannot call `/api/**`, so `TemplateGenerationHandler` dispatches the same `GenerateDocument`
+through UI routes under `…/templates/{key}`.
 
-This also covers the ADR's "an author can try the form against a draft deployed to a test
-environment": an environment that follows a draft binds the draft, as generation already does.
+- **The action** is in the template page's header for whoever has `DOCUMENT_GENERATE`. The dialog
+  asks where to generate from (an environment serving the catalog, or the catalog's latest release
+  cut here), the variant (the default preselected), the data (the first data example), and, only
+  while the toggle is on, whether to ask for the data in a form (no / when incomplete / always).
+  With nothing to generate from it says so and links to the catalog.
+- **Without a form** the dialog returns to the template page with `?job={token}`. **With a form** the
+  browser goes to the form, whose `returnUrl` is that same page; the form adds `epistolaRequestId` and
+  `epistolaRequestStatus`. The UI chooses the request id up front (`GenerateDocument.requestId`),
+  because the token in the return URL is signed over it.
+- **The job panel** on the template page shows the status, refreshing every two seconds while it
+  renders; a fresh form link and Cancel while it waits; the PDF and the edited fields once done; the
+  reason when cancelled or failed.
+- **Access:** the job routes take a `GenerationJobTokens` token, never a bare request id: signed with
+  the form links' key under its own purpose, over the request, the person's user id and an expiry.
+  Anything else gets 404 (`docs/auth.md`).
+
+Tests: `GenerationJobTokensIT` (another person, expiry, tampering, a form session; the user and expiry
+checks shown failing without them) and `TemplateGenerationHandlerTest` (the action and dialog, both
+flows over HTTP, and the 404s; shown failing with a bare id accepted and with the user check removed).
 
 ### 6. Demo, docs, changelog
 

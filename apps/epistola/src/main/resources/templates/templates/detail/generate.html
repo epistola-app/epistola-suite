@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/*
+    "Generate document" on the template page (TemplateGenerationHandler):
+      - `dialog` — swapped into #dialog-mount by the page-header action;
+      - `generate-form` — re-rendered in place on errors (dialogFieldErrors);
+      - `job-panel` — the job the page's token names, refreshing itself while it renders.
+    The job routes take a token, never a bare request id: it names the request and the signed-in
+    person, so a URL that leaks shows nothing to anyone else.
+    */-->
+    <th:block th:fragment="dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='generate-document-dialog',
+            title='Generate document',
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/{id}(tenantId=${tenantId},catalogSeg=${catalogSegment},id=${template.id})},
+            content=~{::generate-form})}"></div>
+    </th:block>
+
+    <form th:fragment="generate-form" id="generate-document-form"
+          method="post"
+          th:action="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/{id}/generate(tenantId=${tenantId},catalogSeg=${catalogSegment},id=${template.id})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/{id}/generate(tenantId=${tenantId},catalogSeg=${catalogSegment},id=${template.id})}"
+          hx-swap="none">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='generate-document-error')}"></div>
+
+        <div class="ep-dialog-body">
+            <!--/* Nothing to generate from: say what is missing and where to fix it, never an empty picker. */-->
+            <div th:if="${choices.nothingToGenerate}" class="alert alert-info" role="status" data-testid="generate-nothing">
+                This catalog has no release yet, and no environment serves it. Release the catalog, or
+                deploy it to an environment, to generate documents from this template.
+                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}(tenantId=${tenantId},catalogSeg=${catalogSegment})}">Go to the catalog</a>
+            </div>
+
+            <th:block th:unless="${choices.nothingToGenerate}">
+                <div class="form-group" th:classappend="${errors?.containsKey('target')} ? 'error' : ''">
+                    <label class="ep-label" for="generate-target">Generate from</label>
+                    <select id="generate-target" name="target" class="ep-select" required data-testid="generate-target">
+                        <option th:each="t : ${choices.targets}" th:value="${t.value}"
+                                th:selected="${formData?.target == t.value}"
+                                th:text="${t.version != null} ? ${t.label + ' (' + t.version + ')'} : ${t.label + ' (work in progress)'}">Latest release</option>
+                    </select>
+                    <span class="form-hint">An environment renders the release deployed there.</span>
+                    <span class="form-error" th:if="${errors?.containsKey('target')}" th:text="${errors.target}"></span>
+                </div>
+
+                <div class="form-group" th:classappend="${errors?.containsKey('variant')} ? 'error' : ''">
+                    <label class="ep-label" for="generate-variant">Variant</label>
+                    <select th:unless="${#lists.isEmpty(choices.variants)}" id="generate-variant" name="variant" class="ep-select" required data-testid="generate-variant">
+                        <option th:each="v : ${choices.variants}" th:value="${v.id}"
+                                th:selected="${formData?.variant == #strings.toString(v.id)}"
+                                th:text="${v.isDefault} ? ${v.title + ' (default)'} : ${v.title}">Default</option>
+                    </select>
+                    <span class="form-error" th:if="${errors?.containsKey('variant')}" th:text="${errors.variant}"></span>
+                </div>
+
+                <div class="form-group" th:classappend="${errors?.containsKey('data')} ? 'error' : ''">
+                    <label class="ep-label" for="generate-data">Data</label>
+                    <textarea id="generate-data" name="data" class="ep-textarea" rows="10" maxlength="100000"
+                              spellcheck="false" style="font-family: var(--ep-font-mono);"
+                              data-testid="generate-data" th:text="${formData?.data}">{}</textarea>
+                    <span class="form-hint">JSON, starting from the template's first data example.</span>
+                    <span class="form-error" th:if="${errors?.containsKey('data')}" th:text="${errors.data}"></span>
+                </div>
+
+                <!--/* Only while the tenant has interactive generation on (alpha). */-->
+                <div th:if="${choices.formsAvailable}" class="form-group" th:classappend="${errors?.containsKey('trigger')} ? 'error' : ''">
+                    <label class="ep-label" for="generate-trigger">Ask for the data in a form</label>
+                    <select id="generate-trigger" name="trigger" class="ep-select" data-testid="generate-trigger">
+                        <option th:each="t : ${triggers}" th:value="${t.value}"
+                                th:selected="${formData?.trigger == t.value}" th:text="${t.label}">No</option>
+                    </select>
+                    <span class="form-hint">The form opens here; submitting or cancelling it brings you back to this page.</span>
+                    <span class="form-error" th:if="${errors?.containsKey('trigger')}" th:text="${errors.trigger}"></span>
+                </div>
+            </th:block>
+        </div>
+
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="generate-document-dialog">Cancel</button>
+            <button th:unless="${choices.nothingToGenerate}" type="submit" class="ep-btn ep-btn-primary" data-testid="generate-submit">Generate</button>
+        </div>
+    </form>
+
+    <!--/* The job's panel. While it renders it fetches itself again every two seconds. */-->
+    <div th:fragment="job-panel" id="generation-job" class="alert"
+         th:classappend="${job.status.name() == 'COMPLETED'} ? 'alert-success' : (${job.status.name() == 'FAILED'} ? 'alert-error' : 'alert-info')"
+         role="status" data-testid="generation-job" th:attr="data-status=${job.status}"
+         th:hx-get="${job.running} ? @{${jobUrl}} : null"
+         th:hx-trigger="${job.running} ? 'every 2s' : null"
+         hx-swap="outerHTML">
+        <th:block th:switch="${job.status.name()}">
+            <th:block th:case="'AWAITING_INPUT'">
+                <p style="margin: 0 0 var(--ep-space-2);">This document waits for its data to be completed in the form.</p>
+                <a th:if="${job.formUrl != null}" th:href="${job.formUrl}" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="generation-job-open-form">Open the form</a>
+            </th:block>
+            <p th:case="'PENDING'" style="margin: 0;">The document is queued for rendering…</p>
+            <p th:case="'IN_PROGRESS'" style="margin: 0;">The document is rendering…</p>
+            <th:block th:case="'COMPLETED'">
+                <p style="margin: 0 0 var(--ep-space-2);">The document is ready.</p>
+                <p th:if="${job.editedFields != null and !#lists.isEmpty(job.editedFields)}" style="margin: 0 0 var(--ep-space-2);">
+                    Changed in the form: <code th:each="f, s : ${job.editedFields}" th:text="${f} + (${s.last} ? '' : ', ')">/name</code>
+                </p>
+                <a th:if="${job.downloadable}" th:href="@{${jobUrl} + '/document'}" hx-boost="false"
+                   class="ep-btn ep-btn-primary ep-btn-sm" data-testid="generation-job-download">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
+                    Download PDF
+                </a>
+            </th:block>
+            <p th:case="'FAILED'" style="margin: 0;">
+                The document could not be rendered: <span th:text="${job.errorMessage}">reason</span>
+            </p>
+            <th:block th:case="'CANCELLED'">
+                <p style="margin: 0;" th:switch="${job.cancelReason}">
+                    <span th:case="'USER'">The form was cancelled; no document was generated.</span>
+                    <span th:case="'EXPIRED'">Nobody completed the form in time; no document was generated.</span>
+                    <span th:case="*">The job was cancelled; no document was generated.</span>
+                </p>
+            </th:block>
+        </th:block>
+        <button th:if="${job.cancellable}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                style="margin-top: var(--ep-space-2);"
+                th:hx-post="@{${jobUrl} + '/cancel'}" hx-target="#generation-job" hx-swap="outerHTML"
+                data-testid="generation-job-cancel">Cancel job</button>
+    </div>
+</body>
+</html>

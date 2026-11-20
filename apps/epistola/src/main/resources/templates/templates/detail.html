@@ -12,8 +12,17 @@
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${template.name},
             backLinkHref=${draftBar != null} ? @{/tenants/{tenantId}/catalogs/{catalogSeg}/templates(tenantId=${tenantId},catalogSeg=${draftBar.segmentValue})} : @{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
-            backLinkLabel='Templates'
+            backLinkLabel='Templates',
+            actions=${mayGenerate} ? ~{::template-actions} : null
         )}"></div>
+
+        <!--/* The job a "Generate document" started, named by the token the form returns with. The
+               panel route checks the token; this page only passes it on. */-->
+        <div th:if="${jobToken != null}"
+             th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/{id}/jobs/{token}(tenantId=${tenantId},catalogSeg=${catalogSegment ?: catalogId},id=${template.id},token=${jobToken})}"
+             hx-trigger="load" hx-swap="outerHTML" data-testid="generation-job-loading"></div>
+
+        <div id="generate-dialog-mount" data-dialog-mount></div>
 
         <!-- Tab Navigation -->
         <div class="tab-nav">
@@ -35,6 +44,17 @@
         <!-- Active tab content (each tab is a separate template file) -->
         <div th:replace="~{'templates/detail/' + ${activeTab} :: tab-content}"></div>
 
+    </th:block>
+
+    <!--/* Page-header action: generate a document from this template (TemplateGenerationHandler). */-->
+    <th:block th:fragment="template-actions">
+        <button type="button" class="ep-btn ep-btn-primary"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/{id}/generate(tenantId=${tenantId},catalogSeg=${catalogSegment ?: catalogId},id=${template.id})}"
+                hx-target="#generate-dialog-mount" hx-swap="innerHTML"
+                data-testid="generate-document-open">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon')}" />
+            Generate document
+        </button>
     </th:block>
 
     <!-- Fragment: edit variant form (loaded into dialog via HTMX) -->

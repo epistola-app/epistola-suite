@@ -75,6 +75,8 @@ import tools.jackson.databind.node.ObjectNode
  *   alpha). Ignored, as a server that predates it would, while the tenant's
  *   `interactive-generation` toggle is off or the installation has no public base URL; the result's
  *   [DocumentGenerationRequest.interactive] is then null, which is how a caller tells.
+ * @property requestId The new request's id. A fresh one by default; the web UI chooses it up front,
+ *   because the return URL it hands the form carries a token signed over it.
  */
 data class GenerateDocument(
     /** The template's catalog, by its address (ADR 0034, section 9). */
@@ -89,6 +91,7 @@ data class GenerateDocument(
     val correlationId: String? = null,
     val routingKey: String? = null,
     val interactive: InteractiveGeneration? = null,
+    val requestId: GenerationRequestKey = GenerationRequestKey.generate(),
 ) : Command<DocumentGenerationRequest>,
     RequiresPermission,
     NotAudited,
@@ -143,7 +146,7 @@ class GenerateDocumentHandler(
 
         return jdbi.inTransaction<DocumentGenerationRequest, Exception> { handle ->
             if (interactive != null) originPolicy.check(handle, command.tenantKey, application, interactive)
-            val requestId = GenerationRequestKey.generate()
+            val requestId = command.requestId
             val request = handle.createQuery(
                 """
                 INSERT INTO document_generation_requests (

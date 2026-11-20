@@ -125,7 +125,11 @@ class InteractiveFormLinks(
         return Claims(expiresAt, b64(nonce))
     }
 
-    private fun mac(purpose: String, payload: ByteArray): ByteArray = Mac.getInstance(HMAC).run {
+    /**
+     * This installation's MAC over [payload] for [purpose]. Shared with [app.epistola.suite.documents.GenerationJobTokens],
+     * which signs with the same key under a purpose of its own, so no value is ever accepted for another.
+     */
+    internal fun mac(purpose: String, payload: ByteArray): ByteArray = Mac.getInstance(HMAC).run {
         init(SecretKeySpec(key, HMAC))
         update(purpose.toByteArray(Charsets.US_ASCII))
         doFinal(payload)

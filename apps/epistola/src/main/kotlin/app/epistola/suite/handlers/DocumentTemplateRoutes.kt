@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates
 
+import app.epistola.suite.handlers.TemplateGenerationHandler
 import app.epistola.suite.handlers.VariantContentHandler
 import app.epistola.suite.htmx.CatalogScopedRoutes
 import app.epistola.suite.htmx.catalogScopedRoutes
@@ -21,6 +22,7 @@ class DocumentTemplateRoutes(
     private val previewHandler: TemplatePreviewHandler,
     private val settingsTabHandler: SettingsTabHandler,
     private val dataContractTabHandler: DataContractTabHandler,
+    private val generationHandler: TemplateGenerationHandler,
 ) {
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
@@ -53,6 +55,13 @@ class DocumentTemplateRoutes(
             GET("/{id}/api", handler::get)
             POST("/{id}/validate-schema", handler::validateSchema)
             POST("/{id}/ready", variantHandler::markTemplateReady)
+
+            // Generate a document from the template, and follow the job (a token, never a bare id)
+            GET("/{id}/generate", generationHandler::dialog)
+            POST("/{id}/generate", generationHandler::generate)
+            GET("/{id}/jobs/{token}", generationHandler::job)
+            GET("/{id}/jobs/{token}/document", generationHandler::document)
+            POST("/{id}/jobs/{token}/cancel", generationHandler::cancel)
 
             // Data contract: one schema and its examples, edited in place
             PATCH("/{id}/contract", dataContractTabHandler::update)
