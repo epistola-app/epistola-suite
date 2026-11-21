@@ -8,7 +8,7 @@ Alpha, behind the `interactive-generation` feature toggle (off by default), impl
 2.1.0's interactive generation (contract ADR 0011). A caller sends `interactive` with
 `generateDocument`. When data is missing, or every time with `trigger: always`, the job waits in
 `awaiting-input` and the response carries a link to a form. A link opens for minutes and once; the
-job status hands out a fresh one on every call (contract 2.1.1). The form is Suite's first page reachable without
+job status hands out a fresh one on every call, to the caller that asked and no other reader of the job (contract 2.1.1). The form is Suite's first page reachable without
 signing in: it shows the fields the template's data contract asks for, named in words with the
 contract's descriptions as help and pre-filled with what the caller sent, beside a preview that
 renders once nothing required is missing, and validates on the server before the job renders. Cancelled jobs say why

@@ -54,6 +54,10 @@ CREATE TABLE generation_request_interactions (
     caller_data     JSONB       NOT NULL,
     -- JSON Pointers where the submitted data differs from caller_data. NULL until submitted.
     edited_fields   JSONB,
+    -- Who asked: the caller's application, or its user id without one. Only that caller gets a
+    -- link from the job status; anyone else who may read the job sees it without one. NULL when
+    -- nothing authenticated asked, and then nobody gets a link that way.
+    requested_by    TEXT,
     PRIMARY KEY (request_id, created_at)
 ) PARTITION BY RANGE (created_at);
 

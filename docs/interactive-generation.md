@@ -21,7 +21,9 @@ The form is the only Suite page reachable without signing in. How it is secured 
    `awaiting-input`, and the response carries the form's link (`interactive.url`).
 
 2. **The person** opens the link. The link works once and for minutes; the caller gets a fresh one
-   from `getGenerationJobStatus` whenever it needs one. Opening it starts a session on the form.
+   from `getGenerationJobStatus` whenever it needs one. Only the caller that asked does: its
+   application (any of its keys), or the same user without one. Anyone else who may read the job
+   sees it waiting, without a link. Opening it starts a session on the form.
 3. **The form** shows the fields the template's data contract asks for, pre-filled with what the
    caller sent, beside a preview of the document. The server validates every preview and the
    submission; nothing in the browser is trusted.

@@ -2826,6 +2826,7 @@ new generation_results.application_id
     locale character varying(35),
     missing_fields jsonb DEFAULT '[]'::jsonb NOT NULL,
     request_id uuid NOT NULL,
+    requested_by text,
     return_url text,
     tenant_key public.tenant_key NOT NULL,
     title text,

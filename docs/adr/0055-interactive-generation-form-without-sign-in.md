@@ -25,7 +25,8 @@ This is the surface to review hardest. Three questions decide its shape:
 3. What keeps the preview from being a free, anonymous renderer?
 
 A fourth arose when the web UI started jobs with a form: a signed-in person returning from the form
-must see their own job, while `DOCUMENT_VIEW` reads every document in the tenant.
+must see their own job, while `DOCUMENT_VIEW` reads every document in the tenant. The same holds for
+the job status over REST, which hands out links (§8).
 
 ## Decision
 
@@ -90,6 +91,15 @@ When the web UI starts a job (with or without a form), it follows it at
 the request, the signed-in person's user id and an expiry. Every job route answers 404 unless the
 token is valid, unexpired, names the signed-in person and names a job of that tenant and template.
 The form's return URL carries it, so it shows up in history; to anyone else it is useless.
+
+### 8. Only the caller that asked gets a link from the job status
+
+A link controls the form: whoever opens it submits the data the document renders from, or cancels.
+`DOCUMENT_VIEW` reads every job of the tenant for a person, a bearer token and an application that
+sees every document, so handing a link to every reader of a job would let a reader write into
+another application's flow. The request records who asked (`requested_by`: the caller's
+application, so any of its keys, or its user id without one), and the job status hands a link only
+to that caller. Every other reader sees the job wait, without one.
 
 ## Alternatives considered
 

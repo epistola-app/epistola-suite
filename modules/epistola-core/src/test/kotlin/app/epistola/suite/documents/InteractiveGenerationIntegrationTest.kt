@@ -242,6 +242,36 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `the job status hands a link only to the caller that asked, never to another reader of the job`() = withReleasedTemplate { setup ->
+        val caseSystem = applicationPrincipal(setup.tenant.id, urls = emptyList())
+        val request = runAs(caseSystem) { setup.generate("{}", incomplete).execute() }
+        fun linkFor(principal: EpistolaPrincipal): String? = runAs(principal) { GetGenerationJob(request.tenantKey, request.id).query() }!!.request.interactive?.url
+
+        assertThat(linkFor(caseSystem)).`as`("the application that asked").isNotNull()
+        assertThat(linkFor(caseSystem.copy(userId = UserKey.of(UUID.randomUUID())))).`as`("the same application, through another key").isNotNull()
+
+        val reporting = applicationPrincipal(setup.tenant.id, urls = emptyList(), roles = setOf(TenantRole.DOCUMENT_READER), seesAllDocuments = true)
+        val reader = personPrincipal(setup.tenant.id, setOf(TenantRole.DOCUMENT_READER))
+        val administrator = personPrincipal(setup.tenant.id, TenantRole.entries.toSet())
+        for ((who, principal) in listOf("an application that sees every document" to reporting, "a reader" to reader, "an administrator" to administrator)) {
+            val seen = runAs(principal) { GetGenerationJob(request.tenantKey, request.id).query() }
+            assertThat(seen).`as`("%s sees the job", who).isNotNull()
+            assertThat(seen!!.request.interactive?.expiresAt).`as`("%s sees that it waits", who).isNotNull()
+            assertThat(seen.request.interactive?.url).`as`("%s gets no link to its form", who).isNull()
+        }
+    }
+
+    @Test
+    fun `a caller without an application gets links to its own requests only`() = withReleasedTemplate { setup ->
+        val person = personPrincipal(setup.tenant.id, TenantRole.entries.toSet())
+        val request = runAs(person) { setup.generate("{}", incomplete).execute() }
+
+        assertThat(runAs(person) { GetGenerationJob(request.tenantKey, request.id).query() }!!.request.interactive?.url).isNotNull()
+        val colleague = personPrincipal(setup.tenant.id, TenantRole.entries.toSet())
+        assertThat(runAs(colleague) { GetGenerationJob(request.tenantKey, request.id).query() }!!.request.interactive?.url).isNull()
+    }
+
+    @Test
     fun `an expiry above the installation's maximum is refused`() = withReleasedTemplate { setup ->
         // The default maximum is 7 days.
         val error = assertThrows<ValidationException> {
@@ -560,10 +590,15 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
         assertThat(job(request).status).isEqualTo(RequestStatus.AWAITING_INPUT)
     }
 
-    /** A caller authenticated as a new application of [tenant] that allows [urls], with every role. */
-    private fun applicationPrincipal(tenant: TenantKey, urls: List<String>): EpistolaPrincipal {
+    /** A caller authenticated as a new application of [tenant] that allows [urls], with [roles] (every role by default). */
+    private fun applicationPrincipal(
+        tenant: TenantKey,
+        urls: List<String>,
+        roles: Set<TenantRole> = TenantRole.entries.toSet(),
+        seesAllDocuments: Boolean = false,
+    ): EpistolaPrincipal {
         val application = withMediator {
-            val id = CreateApplication(tenantKey = tenant, name = "Case system", roles = TenantRole.entries.toSet()).execute().id
+            val id = CreateApplication(tenantKey = tenant, name = "Case system", roles = roles).execute().id
             SetApplicationReturnUrls(tenant, id, urls).execute()
             id
         }
@@ -573,9 +608,22 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
             externalId = "apikey:$userId",
             email = "apikey-$userId@npa.epistola",
             displayName = "Case system",
-            tenantMemberships = mapOf(tenant to TenantRole.entries.toSet()),
+            tenantMemberships = mapOf(tenant to roles),
             currentTenantId = tenant,
-            application = PrincipalApplication(application, seesAllDocuments = false, ownsUnattributedDocuments = false),
+            application = PrincipalApplication(application, seesAllDocuments = seesAllDocuments, ownsUnattributedDocuments = false),
+        )
+    }
+
+    /** A person (or a bearer token) of [tenant] with [roles], acting for no application: sees every document. */
+    private fun personPrincipal(tenant: TenantKey, roles: Set<TenantRole>): EpistolaPrincipal {
+        val userId = UserKey.of(UUID.randomUUID())
+        return EpistolaPrincipal(
+            userId = userId,
+            externalId = "person:$userId",
+            email = "person-$userId@example.org",
+            displayName = "Person",
+            tenantMemberships = mapOf(tenant to roles),
+            currentTenantId = tenant,
         )
     }
 

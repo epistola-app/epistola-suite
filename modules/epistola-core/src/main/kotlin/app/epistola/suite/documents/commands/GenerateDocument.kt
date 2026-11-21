@@ -26,6 +26,7 @@ import app.epistola.suite.documents.interactive.InteractiveFormLinks
 import app.epistola.suite.documents.interactive.InteractiveGeneration
 import app.epistola.suite.documents.interactive.InteractiveGenerationProperties
 import app.epistola.suite.documents.interactive.InteractiveState
+import app.epistola.suite.documents.interactive.InteractiveStates
 import app.epistola.suite.documents.interactive.InteractiveTrigger
 import app.epistola.suite.documents.interactive.ReturnUrlPolicy
 import app.epistola.suite.documents.model.DocumentGenerationRequest
@@ -233,11 +234,11 @@ class GenerateDocumentHandler(
             """
             INSERT INTO generation_request_interactions (
                 request_id, created_at, tenant_key, trigger, expires_at, return_url, title, instructions,
-                links, locale, missing_fields, caller_data, edited_fields
+                links, locale, missing_fields, caller_data, edited_fields, requested_by
             )
             VALUES (
                 :requestId, :createdAt, :tenantKey, :trigger, :expiresAt, :returnUrl, :title, :instructions,
-                :links::jsonb, :locale, :missingFields::jsonb, :callerData::jsonb, :editedFields::jsonb
+                :links::jsonb, :locale, :missingFields::jsonb, :callerData::jsonb, :editedFields::jsonb, :requestedBy
             )
             """,
         )
@@ -255,6 +256,7 @@ class GenerateDocumentHandler(
             .bind("callerData", callerData.toString())
             // Nothing asked: the caller's data is final as sent, with nothing edited.
             .bind("editedFields", if (form.asks) null else "[]")
+            .bind("requestedBy", InteractiveStates.callerId())
             .execute()
         val link = expiresAt?.let { formLinks.issue(request.id, it) }
         return InteractiveState(
