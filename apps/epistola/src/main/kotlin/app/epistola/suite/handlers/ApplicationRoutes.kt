@@ -21,6 +21,8 @@ class ApplicationRoutes(private val handler: ApplicationHandler) {
             GET("/{applicationId}", handler::detail)
             GET("/{applicationId}/edit", handler::editForm)
             POST("/{applicationId}/edit", handler::edit)
+            GET("/{applicationId}/return-urls", handler::returnUrlsForm)
+            POST("/{applicationId}/return-urls", handler::saveReturnUrls)
             POST("/{applicationId}/documents", handler::updateDocuments)
             POST("/{applicationId}/unattributed-documents", handler::updateUnattributedDocuments)
             POST("/{applicationId}/delete", handler::delete)

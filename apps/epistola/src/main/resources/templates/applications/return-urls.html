@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/*
+    Where an application's interactive generation forms may return to (ApplicationHandler):
+      - `dialog` — swapped into #dialog-mount by the application page's "Edit addresses";
+      - `return-urls-form` — re-rendered in place on errors (dialogFieldErrors).
+    On success the browser reloads the application's page.
+
+    Model: `tenantId`, `app`, `returnUrls` (ApplicationReturnUrls); on error `formData`/`errors`.
+    */-->
+    <th:block th:fragment="dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='return-urls-dialog',
+            title='Form return addresses',
+            closeUrl=@{/tenants/{t}/applications/{a}(t=${tenantId},a=${app.id})},
+            content=~{::return-urls-form})}"></div>
+    </th:block>
+
+    <form th:fragment="return-urls-form" id="return-urls-form"
+          method="post" th:action="@{/tenants/{t}/applications/{a}/return-urls(t=${tenantId},a=${app.id})}"
+          th:hx-post="@{/tenants/{t}/applications/{a}/return-urls(t=${tenantId},a=${app.id})}"
+          hx-swap="none">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='return-urls-error')}"></div>
+        <div class="ep-dialog-body">
+            <div class="form-group" th:classappend="${errors?.containsKey('urls')} ? 'error' : ''">
+                <label class="ep-label" for="return-urls">Addresses, one per line</label>
+                <textarea id="return-urls" name="urls" class="ep-textarea" rows="6" maxlength="10020"
+                          spellcheck="false" style="font-family: var(--ep-font-mono);"
+                          placeholder="https://cases.example.org/zaken"
+                          data-testid="return-urls-input"
+                          th:text="${formData != null ? formData.urls : #strings.listJoin(app.allowedReturnUrls, '&#10;')}"></textarea>
+                <span class="form-hint">
+                    A form may send the person to a URL that starts with one of these: the same scheme, host
+                    and port, and a path under the one given. <code>https://cases.example.org</code> allows
+                    every page there; <code>https://cases.example.org/zaken</code> only pages under
+                    <code>/zaken</code>. No query or fragment. At most 20.
+                </span>
+                <span class="form-error" th:if="${errors?.containsKey('urls')}" th:text="${errors.urls}" data-testid="return-urls-error-text"></span>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="return-urls-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="return-urls-save">Save</button>
+        </div>
+    </form>
+</body>
+</html>

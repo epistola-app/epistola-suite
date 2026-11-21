@@ -26,6 +26,9 @@ class CorePartitionedTables(private val partitions: PartitionProperties) : Parti
         // are dropped in lockstep and blobs are reclaimed with their metadata (#738).
         PartitionedTable("document_content", partitions.retentionMonths),
         PartitionedTable("document_generation_requests", partitions.retentionMonths),
+        // The form of an interactive request, partitioned on its request's created_at: it MUST share
+        // the requests' retention so it is dropped with them (contract ADR 0011, "Retention").
+        PartitionedTable("generation_request_interactions", partitions.retentionMonths),
         PartitionedTable("generation_results", partitions.generationResultsRetentionMonths),
         PartitionedTable("event_log", partitions.eventLogRetentionMonths),
     )

@@ -6,6 +6,7 @@ package app.epistola.suite.documents.queries
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.DocumentVisibility
+import app.epistola.suite.documents.interactive.InteractiveStates
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Query
@@ -38,6 +39,7 @@ data class ListGenerationJobs(
 @Component
 class ListGenerationJobsHandler(
     private val jdbi: Jdbi,
+    private val interactiveStates: InteractiveStates,
 ) : QueryHandler<ListGenerationJobs, List<DocumentGenerationRequest>> {
 
     override fun handle(query: ListGenerationJobs): List<DocumentGenerationRequest> = jdbi.withHandle<List<DocumentGenerationRequest>, Exception> { handle ->
@@ -45,7 +47,7 @@ class ListGenerationJobsHandler(
             """
             SELECT id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, environment_key, release_version, draft_id, draft_label, catalog_version_id,
                    data, filename, correlation_id, routing_key, document_key, status, claimed_by, claimed_at,
-                   error_message, created_at, started_at, completed_at, expires_at
+                   error_message, created_at, started_at, completed_at, expires_at, cancel_reason, submitted_at, has_form
             FROM document_generation_requests
             WHERE tenant_key = :tenantId
             """,
@@ -70,7 +72,6 @@ class ListGenerationJobsHandler(
             q.bind("status", query.status.name)
         }
 
-        q.mapTo<DocumentGenerationRequest>()
-            .list()
+        interactiveStates.attach(handle, q.mapTo<DocumentGenerationRequest>().list(), withLinks = false)
     }
 }

@@ -113,9 +113,9 @@ class TwoZeroChainEquivalenceIT {
      * makes, `+ row line` and `- row line` a row it makes or no longer makes (as `data.txt` writes it),
      * `column table.column` a column whose values are no longer compared because it is gone,
      * `was table.column value` a column the old chain wrote with that JSON value on every row and this
-     * one no longer has, and `new table.column` a column this chain adds that no migrated row has a
-     * value in: a row is read as the old chain wrote it ([asRecorded]), so what it is described as,
-     * and the label of every id it names, does not change.
+     * one no longer has, and `new table.column [value]` a column this chain adds that every migrated
+     * row holds null in, or the given JSON value (its default): a row is read as the old chain wrote it
+     * ([asRecorded]), so what it is described as, and the label of every id it names, does not change.
      */
     private class Intended(
         val added: List<String>,
@@ -124,7 +124,7 @@ class TwoZeroChainEquivalenceIT {
         val removedRows: List<String>,
         private val droppedColumns: Set<String>,
         private val removedColumns: Map<String, String>,
-        private val addedColumns: Set<String>,
+        private val addedColumns: Map<String, String>,
     ) {
         /** [row] of [table] as the old chain wrote it: its removed columns back, its added ones left out while empty. */
         fun asRecorded(table: String, row: tools.jackson.databind.node.ObjectNode): tools.jackson.databind.node.ObjectNode {
@@ -132,8 +132,11 @@ class TwoZeroChainEquivalenceIT {
                 val name = column.substringAfter('.')
                 if (!row.has(name)) row.set(name, json.readTree(value))
             }
-            addedColumns.filter { it.startsWith("$table.") }.map { it.substringAfter('.') }
-                .forEach { name -> if (row.get(name)?.isNull == true) row.remove(name) }
+            addedColumns.filterKeys { it.startsWith("$table.") }.forEach { (column, value) ->
+                val name = column.substringAfter('.')
+                val held = row.get(name) ?: return@forEach
+                if (held.isNull || held == json.readTree(value)) row.remove(name)
+            }
             return row
         }
 
@@ -159,7 +162,8 @@ class TwoZeroChainEquivalenceIT {
                     removedRows = rows.filter { it.startsWith("- ") }.map { it.removePrefix("- row ").trim() },
                     droppedColumns = entries.filter { it.startsWith("column ") }.map { it.removePrefix("column ").trim() }.toSet(),
                     removedColumns = entries.filter { it.startsWith("was ") }.associate { it.removePrefix("was ").trim().substringBefore(' ') to it.removePrefix("was ").trim().substringAfter(' ') },
-                    addedColumns = entries.filter { it.startsWith("new ") }.map { it.removePrefix("new ").trim() }.toSet(),
+                    addedColumns = entries.filter { it.startsWith("new ") }.map { it.removePrefix("new ").trim() }
+                        .associate { it.substringBefore(' ') to (it.substringAfter(' ', "null")) },
                 )
             }
         }

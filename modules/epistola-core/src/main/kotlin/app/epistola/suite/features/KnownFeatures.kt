@@ -37,6 +37,14 @@ object KnownFeatures {
     val CATALOG_INSTALLING = FeatureKey.of("catalog-installing")
 
     /**
+     * Interactive generation (contract ADR 0011): a generation request may ask a person to complete
+     * its data in a form before it renders. Off, the request's `interactive` is ignored exactly as a
+     * server that predates it would, which callers detect by the missing echo. Also needs
+     * `epistola.generation.interactive.public-base-url`, without which it stays off.
+     */
+    val INTERACTIVE_GENERATION = FeatureKey.of("interactive-generation")
+
+    /**
      * Editor walkthrough — a guided, driver.js-driven tour of the template editor.
      *
      * A purely client-side onboarding aid: no server component, and toggle-only like [QUALITY].
@@ -52,6 +60,7 @@ object KnownFeatures {
         RESOURCE_RELOCATION,
         CATALOG_PUBLISHING,
         CATALOG_INSTALLING,
+        INTERACTIVE_GENERATION,
     )
 
     /**
@@ -119,6 +128,13 @@ object KnownFeatures {
             "Catalog installing",
             "Enables browsing Epistola Exchange and installing catalogs published there. Installed " +
                 "catalogs are read-only mirrors and are checked for newer releases in the background.",
+            stage = FeatureStage.ALPHA,
+        ),
+        INTERACTIVE_GENERATION to FeatureMetadata(
+            "Interactive generation",
+            "Lets a calling system ask a person to complete a document's data in a form before it is generated, " +
+                "and lets authors try that form from the template page. The form is reachable by its link alone, " +
+                "without signing in, until it is submitted, cancelled or expires.",
             stage = FeatureStage.ALPHA,
         ),
     )

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/*
+    A generation job started from the template page (TemplateGenerationHandler.job). The URL carries
+    a token naming the job and the signed-in person; the route answers 404 to anyone else.
+    The `job` fragment fetches itself again while the job can still change on its own.
+    */-->
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Generated document',
+            pageDescription=${'From the template ' + template.name + '.'},
+            backLinkHref=@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/{id}(tenantId=${tenantId},catalogSeg=${catalogSegment},id=${template.id})},
+            backLinkLabel=${template.name}
+        )}"></div>
+
+        <div th:replace="~{templates/detail/job :: job}"></div>
+    </th:block>
+
+    <div th:fragment="job" id="generation-job" data-testid="generation-job" th:attr="data-status=${job.status}"
+         th:hx-get="${job.refreshEvery != null} ? @{${jobUrl}} : null"
+         th:hx-trigger="${job.refreshEvery}"
+         hx-swap="outerHTML">
+
+        <div class="ep-panel detail-section">
+            <div class="detail-section-header">
+                <h2>Status</h2>
+                <span class="badge" data-testid="generation-job-status"
+                      th:classappend="${job.status.name() == 'COMPLETED'} ? 'badge-success' :
+                                      (${job.status.name() == 'FAILED'} ? 'badge-destructive' :
+                                      (${job.status.name() == 'CANCELLED'} ? 'badge-warning' :
+                                      (${job.status.name() == 'AWAITING_INPUT'} ? 'badge-primary' : 'badge-outline')))"
+                      th:switch="${job.status.name()}">
+                    <th:block th:case="'AWAITING_INPUT'">Waiting for the form</th:block>
+                    <th:block th:case="'PENDING'">Queued</th:block>
+                    <th:block th:case="'IN_PROGRESS'">Rendering</th:block>
+                    <th:block th:case="'COMPLETED'">Ready</th:block>
+                    <th:block th:case="'FAILED'">Failed</th:block>
+                    <th:block th:case="'CANCELLED'">Cancelled</th:block>
+                </span>
+            </div>
+            <div class="detail-section-body">
+                <th:block th:switch="${job.status.name()}">
+                    <p th:case="'AWAITING_INPUT'" style="margin-top: 0;">The data is completed in a form first. Once it is submitted, the document renders.</p>
+                    <p th:case="'PENDING'" style="margin-top: 0;">The document is queued for rendering. This page updates by itself.</p>
+                    <p th:case="'IN_PROGRESS'" style="margin-top: 0;">The document is rendering. This page updates by itself.</p>
+                    <p th:case="'COMPLETED'" style="margin-top: 0;">The document is ready to download.</p>
+                    <p th:case="'FAILED'" style="margin-top: 0;">The document could not be rendered: <span th:text="${job.errorMessage}">reason</span></p>
+                    <th:block th:case="'CANCELLED'">
+                        <p style="margin-top: 0;" th:switch="${job.cancelReason}">
+                            <span th:case="'USER'">The form was cancelled, so no document was generated.</span>
+                            <span th:case="'EXPIRED'">Nobody completed the form in time, so no document was generated.</span>
+                            <span th:case="*">The job was cancelled, so no document was generated.</span>
+                        </p>
+                    </th:block>
+                </th:block>
+
+                <div class="ep-row ep-row-wrap ep-gap-3" th:if="${job.downloadable or job.formUrl != null or job.cancellable}">
+                    <a th:if="${job.downloadable}" th:href="@{${jobUrl} + '/document'}" hx-boost="false"
+                       class="ep-btn ep-btn-primary" data-testid="generation-job-download">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon')}" />
+                        Download PDF
+                    </a>
+                    <a th:if="${job.formUrl != null}" th:href="${job.formUrl}" hx-boost="false"
+                       class="ep-btn ep-btn-primary" data-testid="generation-job-open-form">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='external-link', class='ep-icon')}" />
+                        Open the form
+                    </a>
+                    <button th:if="${job.cancellable}" type="button" class="ep-btn ep-btn-outline"
+                            th:hx-post="@{${jobUrl} + '/cancel'}" hx-target="#generation-job" hx-swap="outerHTML"
+                            data-testid="generation-job-cancel">Cancel job</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="ep-panel detail-section">
+            <div class="detail-section-header">
+                <h2>Details</h2>
+            </div>
+            <div class="detail-section-body">
+                <dl class="description-list" data-testid="generation-job-details">
+                    <dt>Template</dt>
+                    <dd th:text="${template.name}">Letter</dd>
+                    <dt>Variant</dt>
+                    <dd><code th:text="${job.variant}">default</code></dd>
+                    <dt>Renders</dt>
+                    <dd>
+                        <th:block th:if="${job.draftLabel != null}">
+                            The draft <strong th:text="${job.draftLabel}">Next version</strong>, live, as
+                            <code th:text="${job.environment}">staging</code> follows it
+                        </th:block>
+                        <th:block th:if="${job.draftLabel == null and job.environment != null}">
+                            Release <strong th:text="${job.releaseVersion}">1.0.0</strong>, as deployed to
+                            <code th:text="${job.environment}">staging</code>
+                        </th:block>
+                        <th:block th:if="${job.draftLabel == null and job.environment == null}">
+                            Release <strong th:text="${job.releaseVersion}">1.0.0</strong>, the catalog's latest
+                        </th:block>
+                    </dd>
+                    <dt>Requested</dt>
+                    <dd th:text="${#temporals.format(job.requestedAt, 'yyyy-MM-dd HH:mm:ss')}" th:data-local-time="${job.requestedAt}"></dd>
+                    <th:block th:if="${job.hasForm}">
+                        <dt>Form submitted</dt>
+                        <dd th:if="${job.submittedAt != null}" th:text="${#temporals.format(job.submittedAt, 'yyyy-MM-dd HH:mm:ss')}" th:data-local-time="${job.submittedAt}"></dd>
+                        <dd th:if="${job.submittedAt == null}" class="text-muted">Not yet</dd>
+                        <th:block th:if="${job.editedFields != null and !#lists.isEmpty(job.editedFields)}">
+                            <dt>Changed in the form</dt>
+                            <dd data-testid="generation-job-edited">
+                                <code th:each="f, s : ${job.editedFields}" th:text="${f} + (${s.last} ? '' : ', ')">/name</code>
+                            </dd>
+                        </th:block>
+                    </th:block>
+                    <th:block th:if="${job.completedAt != null}">
+                        <dt>Finished</dt>
+                        <dd th:text="${#temporals.format(job.completedAt, 'yyyy-MM-dd HH:mm:ss')}" th:data-local-time="${job.completedAt}"></dd>
+                    </th:block>
+                    <th:block th:if="${job.filename != null}">
+                        <dt>File name</dt>
+                        <dd th:text="${job.filename}">letter.pdf</dd>
+                    </th:block>
+                </dl>
+            </div>
+        </div>
+
+        <div class="ep-panel detail-section">
+            <div class="detail-section-header">
+                <h2>Data</h2>
+            </div>
+            <div class="detail-section-body">
+                <pre th:text="${job.data}" data-testid="generation-job-data"
+                     style="margin: 0; overflow: auto; max-height: 24rem; font-size: var(--ep-text-sm); font-family: var(--ep-font-mono);">{}</pre>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -62,7 +62,7 @@ internal fun DocumentMetadata.toDto(catalog: CatalogName?) = DocumentDto(
 
 // ==================== Document Generation Request ====================
 
-internal fun DocumentGenerationRequest.toJobDto() = DocumentGenerationJobDto(
+internal fun DocumentGenerationRequest.toJobDto(objectMapper: ObjectMapper) = DocumentGenerationJobDto(
     requestId = id.value,
     jobType = GenerationJobType.SINGLE, // Always SINGLE in flattened structure
     status = GenerationJobStatus.valueOf(status.name),
@@ -74,14 +74,18 @@ internal fun DocumentGenerationRequest.toJobDto() = DocumentGenerationJobDto(
     startedAt = startedAt,
     completedAt = completedAt,
     progressPercentage = if (isTerminal) 100.0 else 0.0,
+    cancelReason = cancelReason?.toDto(),
+    interactive = interactive?.toDto(objectMapper),
 )
 
-internal fun DocumentGenerationRequest.toJobResponse() = GenerationJobResponse(
+internal fun DocumentGenerationRequest.toJobResponse(objectMapper: ObjectMapper) = GenerationJobResponse(
     requestId = id.value,
     status = GenerationJobStatus.valueOf(status.name),
     jobType = GenerationJobType.SINGLE, // Always SINGLE in flattened structure
     total = 1, // Always 1 in flattened structure
     createdAt = createdAt,
+    cancelReason = cancelReason?.toDto(),
+    interactive = interactive?.toDto(objectMapper),
 )
 
 internal fun BatchKey.toJobResponse() = GenerationJobResponse(
@@ -114,6 +118,12 @@ internal fun DocumentGenerationRequest.toItemDto(catalog: CatalogName?) = Docume
     createdAt = createdAt,
     startedAt = startedAt,
     completedAt = completedAt,
+    cancelReason = cancelReason?.toDto(),
+    // For a job with a form, readable from the moment the person submits (or at once when nothing was
+    // asked); null while it waits, so a caller never stores input the person did not confirm, and on a
+    // job cancelled before submission (contract ADR 0011).
+    data = data.takeIf { interactive?.editedFields != null },
+    editedFields = interactive?.editedFields,
 )
 
 // ==================== Generation Job Result ====================
@@ -143,6 +153,7 @@ internal fun GenerateDocumentRequest.toCommand(
         filename = filename,
         correlationId = correlationId,
         routingKey = routingKey,
+        interactive = interactive?.toDomain(),
     )
 }
 

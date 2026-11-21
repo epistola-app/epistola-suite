@@ -93,6 +93,18 @@ on `local`. A request for a tenant's own catalog without `registry: "local"` is 
 `not-found` with `missing.kind = catalog`. The catalog page and a template's API tab show the values
 to send. `versionRange` picks among the releases deployed to the environment; without it, the highest.
 
+### Asking a person for the data first (alpha)
+
+With `interactive` in the request and the `interactive-generation` toggle on, a job whose data does
+not satisfy the contract (or every job, with `trigger: always`) waits in `awaiting-input` instead of
+going to the queue, and the response carries a link to a form Suite serves. A waiting job is not in
+flight: queue and in-flight metrics leave it out. Once the person submits, it moves to `pending` and
+renders like any other; a form not completed in time is cancelled with `cancelReason: expired`. See
+[Interactive generation](interactive-generation.md).
+
+A template's page in the web UI starts the same request: **Generate document**, optionally with a
+form, followed on a page of its own until the PDF can be downloaded.
+
 ## Rendering a document
 
 ### Components
@@ -541,4 +553,5 @@ For high-volume or batch rendering:
 ## Related Documentation
 
 - [Roadmap](./roadmap.md) - Overall project phases
+- [Interactive generation](./interactive-generation.md) - A person completes the data in a form first (alpha)
 - [REST API](../modules/rest-api/) - Controllers implementing the `epistola-contract` OpenAPI surface

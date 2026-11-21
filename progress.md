@@ -75,6 +75,107 @@ Decided and closed:
 
 ## Touched
 
+### Interactive generation, contract 2.1.0 (19 November; branch `feat/data-collection-form`)
+
+Plan: `docs/plans/interactive-generation.md`. Contract 2.1.0 (ADR 0011, alpha) behind the
+`interactive-generation` toggle. Built so far: contract bump; core (status `AWAITING_INPUT`,
+`generation_request_interactions`, analysis against the bound release, token link, submit / cancel /
+expire, `cancelled` collect lines with `cancelReason`, `data` and `editedFields` on results); allowed
+return origins per application; the REST mapping (echo, `cancelReason`, item `data`/`editedFields`).
+Built since: short-lived single-use links and form sessions (contract#134, Suite side), and the
+public form page (`/forms/{id}`, own security chain, preview with per-form limits, the
+`data-form` editor entry); "Generate document" on the template page (20 November), with a form as
+an option and a page of its own per job that follows it to its PDF, reached by a token signed for
+the person (`GenerationJobTokens`); an environment following a draft renders that draft. Still to come: demo catalog, docs page.
+
+**Coverage:**
+
+- ✅ `GenerationJobTokensIT` (5, core) and `TemplateGenerationHandlerTest` (8, app): the action and
+  dialog, both flows, the job's page to the PDF, an environment following a draft (offered, renders
+  the draft), and 404 for another person, a changed or expired token,
+  a form session, a bare id and another tenant. Shown failing without the user check, without the
+  expiry check, and with a bare id accepted. Checked by hand on the demo app (both flows, the PDF,
+  edited fields). Not covered: a Playwright test of the dialog and the job's page in a browser.
+- ✅ The form for the person filling it in (20 November): `data-form/respondent-form.ts` replaces
+  the example form on the public page — fields named in words, descriptions as help, groups open,
+  lists with add/remove, typed inputs; empty required fields marked only once left, previewed or
+  submitted (problems carry a `kind`); the preview beside the fields renders by itself when nothing
+  required is missing; a count of required fields left. `respondent-form.test.ts` (13),
+  `data-form-lib.test.ts` (the list's server problem cleared once an item is added; shown failing
+  without the fix), `InteractiveFormUiTest` (3, incl. a submit with a field left empty). Checked by
+  screenshot at 1400 px and 390 px on the demo invoice.
+- Noticed, untouched: the generated form's field order is PostgreSQL `jsonb` key order (shortest
+  key first), not the order the contract was written in; the data contract tab shows the same order.
+  Decided (20 November): the order is not written into the schema — the form designer that is
+  coming will set it. A `date-time` field is a plain text input.
+- ✅ Step 6 (20 November): demo catalog 6.10.0 with `objection-decision` (contract with titles,
+  descriptions, a date, an enum, a boolean, a list and a nested group), the demo tenant's
+  `interactive-generation` toggle (`DemoLoader.ensureInteractiveGenerationDemo`),
+  `docs/interactive-generation.md` (indexed), ADR 0055, `generation.md` section.
+  `DemoObjectionDecisionIntegrationTest` (2): without motivation and decision date exactly those are
+  missing; completed, the letter renders them. Demo suite 90/90. Checked live: REST request with
+  `trigger: incomplete` → form → filled in → preview by itself → submit → job completed.
+- Noticed, untouched: (1) a catalog's data examples must be valid, so the demo example is complete;
+  "incomplete" is shown by leaving fields out. (2) Fixed (20 November): an application's return addresses
+  are set on its page (Form return addresses), as URL prefixes rather than origins:
+  `SetApplicationReturnUrls`, `applications.allowed_return_urls`, `ReturnUrlPrefix` (same origin, a
+  path under the entry's at a `/`, dot segments resolved, hidden ones refused). `ReturnUrlPrefixTest`
+  (6; a plain `startsWith` fails 2 of them, and the origin-alone look-alike), core
+  `InteractiveGenerationIntegrationTest` (a path entry allows only what lies under it), 3 new
+  `ApplicationHandlerTest` cases. No REST or MCP: the contract has no application resource. (3) Fixed (20 November): the demo `corporate` theme's page margins were `72`
+  on each side, read as millimetres (`effectivePageSettingsMarginMm`), so every template taking the
+  theme's margins rendered a 66 mm text column; now 25 mm. Demo suite 90/90; the objection letter
+  fits one page. (4) The demo loader's toggle seeding is covered by
+  `DemoTenantListReachableIT` (fails with the seeding left out).
+- Noticed, untouched: the dialog's "Latest release" option uses `CatalogDraftBar.latestPublished`, a
+  release cut in this installation, so an installed catalog (the demo's) offers only its
+  environments. The API tab has the same limit. The REST `downloadDocument` puts the stored filename
+  into `Content-Disposition` unescaped; the UI route builds the header with `ContentDisposition`.
+- ✅ `InteractiveGenerationIntegrationTest` (27, core): triggers, never an example, never claimed,
+  expiry and origin refusals, submit once, render after submit, cancel by caller/person/expiry;
+  links that open once, forged/other/expired codes, sessions bound to their form and renewed.
+- ✅ `InteractiveFormHandlerTest` (7, app): redeem → cookie + clean URL, neutral page, guard,
+  submit/cancel redirects, preview, headers. `InteractiveFormUiTest` (2, Playwright): fill, preview,
+  submit under the strict CSP. `data-form-lib.test.ts` (2).
+- ✅ `InteractiveGenerationApiIT` (7, app): contract scenarios 400, 401, 403–406 over HTTP; the
+  return-URL test is back on since contract 2.1.1 (released 20 November).
+- ✅ Security review (21 November), two findings fixed, each shown failing first: (1) the job status
+  handed a fresh form link to every reader of a job (`DOCUMENT_VIEW` reads the tenant), so a reader
+  could submit or cancel another application's form — now only the caller that asked gets one
+  (`generation_request_interactions.requested_by`, ADR 0055 §8; core +2 tests); (2) the form page
+  wrote its JSON into `<script>` raw, so `</script>` in a contract text or a caller's data key added
+  markup — now `<`, `>`, `&` are `\u`-escaped (`InteractiveFormHandlerTest` +1). Hardening: the form
+  pages send `form-action 'self'` plus the return address's origin (Chrome holds the redirect after
+  a post to it; `InteractiveFormUiTest` failed with `'self'` alone). The CodeQL "CSRF disabled" alert
+  on the forms chain was dismissed as by design (ADR 0055 §2).
+- ✅ unit: `OriginsTest`, `EditedFieldsTest`, `ReturnUrlsTest`, `ApiValidationCodesTest`,
+  `KnownFeaturesTest`; generation/collect/document/partition core tests (179) and
+  `SchemaHygieneAppTest` green.
+- ✅ a render that fails after submission keeps `data` and `editedFields` on its result:
+  `InteractiveGenerationFailedRenderIT` (fails with the result's data limited to completed results).
+
+**Noticed, untouched:**
+
+- ~~**Contract 2.1.0 bug:** `returnUrl` and `links[].url` declared `pattern: '^https?://'`, which
+  Bean Validation matches in full, so every real URL was refused.~~ Fixed in contract 2.1.1 (anchored
+  patterns, also the code lists' `sourceUrl`); the suite is on 2.1.1.
+- `listGenerationJobs` parses `status` with `RequestStatus.valueOf`, while the contract sends
+  `pending`, `in-progress`, … (and has no `awaiting-input` value), so filtering by status cannot
+  work as specified. Predates this branch.
+- **Load impact** measured (`docs/interactive-generation-load-impact.md`). Findings 2, 3, 4 and 6
+  are fixed on this branch (`has_form`, a sweep that starts from the waiting requests,
+  `PreviewLimits`), with the measurements in the same doc. ✅ `PreviewLimitsTest` (4, fails without
+  the node bound), `InteractiveGenerationIntegrationTest` (29) and the collect/poller/job core tests
+  (124). Left: finding 5 (acceptance resolves the release twice), acceptable for alpha.
+- **Pre-existing, found by the load test:** `UPDATE api_keys SET last_used_at = NOW()`
+  (`RecordApiKeyUsage`) took 13–28 ms of database time per API request under concurrency on one
+  key. Fixed separately on branch `fix/api-key-usage-write` (written at most once a minute,
+  `RecordApiKeyUsageIT` fails before).
+- epistola-contract#134 (short-lived links) is implemented in Suite core and prepared in the
+  contract (branch `fix/interactive-links-2.1.1`, PR epistola-contract#135, with the pattern fix)
+  for 2.1.1. Until 2.1.1 is released, REST cannot return `urlExpiresAt` and the
+  return-URL API test stays disabled.
+
 ### Dependency review (12 November; branch `chore/dependency-review`)
 
 Folds the open Renovate PRs (#1051, #1089, #1336, #1364, #880) into one branch and fixes why they

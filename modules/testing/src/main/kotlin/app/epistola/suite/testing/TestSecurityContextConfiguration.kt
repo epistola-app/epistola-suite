@@ -5,6 +5,7 @@
 package app.epistola.suite.testing
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
@@ -18,6 +19,7 @@ import org.springframework.core.annotation.Order
 import org.springframework.security.authentication.TestingAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.filter.OncePerRequestFilter
+import java.util.UUID
 
 /**
  * Request header that narrows this request's principal to the named [TenantRole]s
@@ -37,6 +39,12 @@ const val TEST_PLATFORM_ROLES_HEADER = "X-Test-Platform-Roles"
  * ordinary user, as a local or OIDC sign-in makes one. Lets a test see what such a user sees.
  */
 const val TEST_TENANT_MEMBERSHIPS_HEADER = "X-Test-Tenant-Memberships"
+
+/**
+ * Request header that makes this request's principal another person (the given user id), with the
+ * same roles: drives a route that must answer one person and not the next.
+ */
+const val TEST_USER_ID_HEADER = "X-Test-User-Id"
 
 /**
  * Test configuration that provides a fully-privileged test principal for every HTTP request.
@@ -108,7 +116,9 @@ class TestSecurityContextConfiguration {
             response: HttpServletResponse,
             filterChain: FilterChain,
         ) {
-            val principal = principalFor(request)
+            val principal = principalFor(request).let { p ->
+                request.getHeader(TEST_USER_ID_HEADER)?.let { p.copy(userId = UserKey(UUID.fromString(it)), externalId = "test-user-$it") } ?: p
+            }
             // Populate Spring Security's SecurityContextHolder so Thymeleaf's
             // sec:authorize="isAuthenticated()" evaluates to true
             val secCtx = SecurityContextHolder.createEmptyContext()

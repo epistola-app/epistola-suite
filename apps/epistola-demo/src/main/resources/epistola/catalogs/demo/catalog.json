@@ -40,9 +40,9 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "6.9.0",
-    "releasedAt": "2026-10-22T00:00:00Z",
-    "fingerprint": "v6:62f053aeedd2aff58cea75341c6a96811d3273d644d3fb4879945f844b901fa8"
+    "version": "6.10.0",
+    "releasedAt": "2026-11-20T00:00:00Z",
+    "fingerprint": "v6:1c7ec4a80dba02ccd6078e4f675bb1f7559a3dd1dcf26d77f22d6c455b4bb6a5"
   },
   "catalogDependencies": [
     {
@@ -84,7 +84,7 @@
       "key": "corporate",
       "name": "Corporate Theme",
       "description": "A clean corporate theme with professional styling.",
-      "updatedAt": "2026-05-17T00:00:00Z",
+      "updatedAt": "2026-11-20T00:00:00Z",
       "detailUrl": "./resources/themes/corporate.json"
     },
     {
@@ -126,6 +126,14 @@
       "description": "A minimal template to get started. Contains a heading and a paragraph with data binding.",
       "updatedAt": "2026-07-27T00:00:00Z",
       "detailUrl": "./resources/templates/hello-world.json"
+    },
+    {
+      "type": "template",
+      "key": "objection-decision",
+      "name": "Objection Decision",
+      "description": "An objection decision for interactive generation (alpha, the 'interactive-generation' feature). Generate it with a form: with 'Always' a person reviews and edits the letter's data, with a preview, before it renders; a caller that sends the data without the motivation and the decision date gets a form asking for exactly those. Its data contract uses titles, descriptions, a date, a choice, a yes/no field, a list and a nested group.",
+      "updatedAt": "2026-11-20T00:00:00Z",
+      "detailUrl": "./resources/templates/objection-decision.json"
     },
     {
       "type": "template",

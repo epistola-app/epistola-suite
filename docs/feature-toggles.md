@@ -141,15 +141,16 @@ rule in `components.css`.
 
 ## Current Features
 
-| Key                   | Description                                                           | Stage  | Default |
-| --------------------- | --------------------------------------------------------------------- | ------ | ------- |
-| `support-requests`    | Support → Support requests (sent on with the connection and consent)  | Stable | `true`  |
-| `quality`             | Quality checks ledger, report, and template-editor panel              | Alpha  | `false` |
-| `ai-chat`             | AI chat panel in the template editor                                  | Alpha  | `false` |
-| `editor-walkthrough`  | Guided in-editor tour of the template editor (client-side onboarding) | Alpha  | `true`  |
-| `catalog-publishing`  | Durable publication of catalog releases cut here to Epistola Exchange | Alpha  | `false` |
-| `catalog-installing`  | Browsing Epistola Exchange and installing catalogs published there    | Alpha  | `false` |
-| `resource-relocation` | Organise catalogs: rename and move resources, create shared catalogs  | Stable | `true`  |
+| Key                      | Description                                                           | Stage  | Default |
+| ------------------------ | --------------------------------------------------------------------- | ------ | ------- |
+| `support-requests`       | Support → Support requests (sent on with the connection and consent)  | Stable | `true`  |
+| `quality`                | Quality checks ledger, report, and template-editor panel              | Alpha  | `false` |
+| `ai-chat`                | AI chat panel in the template editor                                  | Alpha  | `false` |
+| `editor-walkthrough`     | Guided in-editor tour of the template editor (client-side onboarding) | Alpha  | `true`  |
+| `catalog-publishing`     | Durable publication of catalog releases cut here to Epistola Exchange | Alpha  | `false` |
+| `catalog-installing`     | Browsing Epistola Exchange and installing catalogs published there    | Alpha  | `false` |
+| `resource-relocation`    | Organise catalogs: rename and move resources, create shared catalogs  | Stable | `true`  |
+| `interactive-generation` | A form that completes a generation request's data (contract ADR 0011) | Alpha  | `false` |
 
 `catalog-publishing` and `catalog-installing` are additionally bounded by the
 hard, default-off `epistola.exchange.enabled` deployment gate. A feature toggle

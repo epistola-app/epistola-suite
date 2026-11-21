@@ -12,6 +12,8 @@ import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -87,6 +89,9 @@ class TemplateDetailHelper {
             "editable" to ctx.editable,
             "activeTab" to activeTab,
             "contentView" to "templates/detail",
+            // Generating is offered to whoever may generate documents in the tenant; the dialog says
+            // when there is nothing to generate from yet.
+            "mayGenerate" to (SecurityContext.currentOrNull()?.hasPermission(ctx.templateId.tenantKey, Permission.DOCUMENT_GENERATE) == true),
         )
         model.putAll(tabModel)
         return ServerResponse.ok().render("layout/shell", model)

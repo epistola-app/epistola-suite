@@ -434,6 +434,50 @@ Disable this to require manual user creation before login.
 | `epistola.auth.oidc.silent-login`         | `true`             | Try a silent SSO sign-in before showing the login page            |
 | `epistola.auth.oidc.backchannel-base-url` | _(none)_           | Internal base URL for server-to-server OIDC calls (split-horizon) |
 
+## The interactive generation form (no sign-in)
+
+`/forms/{requestId}` is the one page reachable without signing in (contract ADR 0011, alpha, behind
+the `interactive-generation` toggle). The person filling it in has no Epistola account; the caller
+that created the generation request authenticated them and handed them a link.
+
+- **The link** is `/forms/{requestId}?authCode={code}`, a code signed by the installation over the
+  request, its expiry (`epistola.generation.interactive.link-lifetime`, 15 minutes) and a nonce. It
+  opens the form once. `getGenerationJobStatus` hands out a fresh one on every call
+  (epistola-contract#134).
+- **Opening it** redeems the code into a form session: a signed cookie `epistola_form`, scoped to
+  `/forms/{requestId}`, `HttpOnly`, `SameSite=Lax`, `Secure` behind an https public base URL. Its
+  expiry slides with every request (`session-idle-timeout`, 60 minutes) and never passes the
+  request's wait. The response redirects to the clean URL, so the code never stays in the address
+  bar or the history.
+- **Every post** (submit, cancel, preview) carries a guard signed over the request, written only
+  into the form's own page. With the `SameSite=Lax` cookie, that replaces Spring's CSRF token, which
+  this chain (`InteractiveFormSecurityConfig`) does not use; it creates no HTTP session either.
+- The core commands check the session themselves, so nothing reaches a form by its request id alone.
+  Anything that is not a live session on an existing form gets one neutral page. The page sends
+  `Referrer-Policy: no-referrer`, `Cache-Control: no-store` and the UI's content security policy.
+- The editor's static bundles (`/editor/**`) are reachable without signing in, because the form page
+  loads one. They are code, not data.
+- **The preview is the renderer, reachable without signing in**, so it is bounded per node: each
+  form one preview at a time and 20 a minute, all forms together `preview-concurrency` (4) at once.
+  Beyond that the form gets 429 with `Retry-After`. Previews render on the request thread, outside
+  the job queue, so this bound is what keeps them from crowding out the queue's renders.
+
+## Following a generation job from the UI
+
+"Generate document" on a template's page (`TemplateGenerationHandler`) dispatches the same
+`GenerateDocument` the REST API does, and then shows the job on a page of its own until its PDF can
+be downloaded. A person may hold `DOCUMENT_VIEW`, which reads every document in the tenant, including the
+ones applications generated, so the job's page (`…/templates/{key}/jobs/{token}`) and its
+`/document` and `/cancel` routes never take a bare request id.
+
+- **The token** (`GenerationJobTokens`) is signed with the form links' installation key, under a
+  purpose of its own, over the request, the person's user id and an expiry (the form's default wait
+  plus a day). A form link code or session is never accepted as one.
+- **Every job route** answers 404, without saying why, unless the token is valid, unexpired, names
+  the signed-in person, and names a job of this tenant and template.
+- **With a form**, the form's return URL is the job's page, token included. That URL is kept
+  with the form and shows up in the browser history; the token is of no use to anyone else.
+
 ## Session Management
 
 Sessions are stored in PostgreSQL using Spring Session JDBC, enabling:

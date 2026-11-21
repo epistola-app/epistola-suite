@@ -11,6 +11,9 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.model.CancelReason
+import org.jdbi.v3.json.Json
+import tools.jackson.databind.node.ObjectNode
 import java.time.OffsetDateTime
 
 /**
@@ -60,7 +63,19 @@ data class GenerationResultRow(
     val sizeBytes: Long?,
     val error: String?,
     val completedAt: OffsetDateTime,
+    /** Why a [ResultStatus.CANCELLED] result's request was cancelled; null otherwise. */
+    val cancelReason: CancelReason? = null,
+    /** For a request with a form, the data it rendered from; null on a cancelled result and without a form. */
+    @Json val data: ObjectNode? = null,
+    /** JSON Pointers where [data] differs from what the caller sent; set exactly when [data] is. */
+    @Json val editedFields: List<String>? = null,
 )
 
 /** Terminal status at the time the result was emitted. Mirrors the contract enum. */
-enum class ResultStatus { COMPLETED, FAILED }
+enum class ResultStatus {
+    COMPLETED,
+    FAILED,
+
+    /** Only for a request created with `interactive`: its form was cancelled or expired (contract ADR 0011). */
+    CANCELLED,
+}

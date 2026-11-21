@@ -163,6 +163,19 @@ enum class ValidationCode(val wire: String) {
     SOURCE_URL_NOT_ALLOWED("SOURCE_URL_NOT_ALLOWED"),
 
     /**
+     * An interactive generation request's `returnUrl` or link is not on an origin this installation
+     * allows for the calling application (contract ADR 0011, `url-not-allowed`).
+     */
+    URL_NOT_ALLOWED("URL_NOT_ALLOWED"),
+
+    /**
+     * A number above a maximum the installation sets, such as an interactive request's expiry above
+     * `epistola.generation.interactive.max-expiry`. The contract's constraint code `maximum`, which a
+     * domain rule reuses when the bound is the installation's rather than the schema's.
+     */
+    MAXIMUM("MAXIMUM"),
+
+    /**
      * A new resource key is one of the suite's reserved words (`NewResourceKeys`). Not registered by
      * the contract yet, so the API sends it as a plain validation error.
      */

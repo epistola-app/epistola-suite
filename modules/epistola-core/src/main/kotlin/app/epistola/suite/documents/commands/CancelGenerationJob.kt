@@ -9,17 +9,28 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.DocumentVisibility
 import app.epistola.suite.documents.GenerationJobNotCancellableException
 import app.epistola.suite.documents.GenerationJobNotFoundException
+import app.epistola.suite.documents.model.CancelReason
+import app.epistola.suite.documents.model.DocumentGenerationRequest
+import app.epistola.suite.documents.model.GENERATION_REQUEST_COLUMNS
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.generation.collect.commands.EmitGenerationResult
+import app.epistola.suite.generation.collect.domain.ResultStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.time.EpistolaClock
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
- * Command to cancel a pending or in-progress generation job.
+ * Command to cancel a generation job that is waiting for input, pending or in progress. It records
+ * [CancelReason.CALLER]; a job created with `interactive` also gets a `cancelled` collect result
+ * (contract ADR 0011), which a job without a form never did and still does not.
  *
  * @property tenantId Tenant that owns the job
  * @property requestId The generation request ID to cancel
@@ -36,6 +47,7 @@ data class CancelGenerationJob(
 @Component
 class CancelGenerationJobHandler(
     private val jdbi: Jdbi,
+    private val mediator: Mediator,
 ) : CommandHandler<CancelGenerationJob, Boolean> {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -67,7 +79,7 @@ class CancelGenerationJobHandler(
             val requestStatus = RequestStatus.valueOf(status)
 
             // 2. Check if request can be cancelled
-            if (requestStatus !in setOf(RequestStatus.PENDING, RequestStatus.IN_PROGRESS)) {
+            if (requestStatus !in CANCELLABLE) {
                 log.warn("Request cannot be cancelled request={} status={}", command.requestId, requestStatus)
                 throw GenerationJobNotCancellableException(
                     command.tenantId,
@@ -77,24 +89,29 @@ class CancelGenerationJobHandler(
             }
 
             // 3. Mark request as cancelled
-            val updated = handle.createUpdate(
+            val cancelled = handle.createQuery(
                 """
                 UPDATE document_generation_requests
                 SET status = :status,
+                    cancel_reason = :cancelReason,
                     completed_at = NOW()
                 WHERE id = :requestId
                   AND tenant_key = :tenantId
-                  AND status IN ('PENDING', 'IN_PROGRESS')
+                  AND status IN ('AWAITING_INPUT', 'PENDING', 'IN_PROGRESS')
                   ${visibility.predicate("application_id")}
+                RETURNING $GENERATION_REQUEST_COLUMNS
                 """,
             )
                 .bind("requestId", command.requestId)
                 .bind("tenantId", command.tenantId)
                 .let(visibility::bindTo)
                 .bind("status", RequestStatus.CANCELLED.name)
-                .execute()
+                .bind("cancelReason", CancelReason.CALLER.name)
+                .mapTo<DocumentGenerationRequest>()
+                .findOne()
+                .orElse(null)
 
-            if (updated == 0) {
+            if (cancelled == null) {
                 log.warn("Request was already completed or cancelled request={}", command.requestId)
                 throw GenerationJobNotCancellableException(
                     command.tenantId,
@@ -104,7 +121,32 @@ class CancelGenerationJobHandler(
             }
 
             log.info("Cancelled generation job request={}", command.requestId)
+            emitCancelledIfInteractive(handle, mediator, cancelled, CancelReason.CALLER)
             true
         }
     }
+}
+
+private val CANCELLABLE = setOf(RequestStatus.AWAITING_INPUT, RequestStatus.PENDING, RequestStatus.IN_PROGRESS)
+
+/**
+ * Emits the `cancelled` collect result of [request] when it was created with `interactive`
+ * (contract ADR 0011: a caller that only collects must learn that the form was abandoned). A job
+ * without a form gets none, as before. In the cancelling transaction, so the result exists exactly
+ * when the cancellation does.
+ */
+internal fun emitCancelledIfInteractive(handle: Handle, mediator: Mediator, request: DocumentGenerationRequest, reason: CancelReason) {
+    if (!request.hasForm) return
+    mediator.send(
+        EmitGenerationResult(
+            request = request,
+            status = ResultStatus.CANCELLED,
+            documentId = null,
+            sizeBytes = null,
+            contentType = null,
+            error = null,
+            completedAt = EpistolaClock.offsetDateTime(),
+            cancelReason = reason,
+        ),
+    )
 }

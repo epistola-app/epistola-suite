@@ -69,6 +69,43 @@
             </div>
         </div>
 
+        <!--/* Where the application's interactive generation forms may send a person back to (contract
+               ADR 0011, alpha): starts of URLs, matched as ReturnUrlPrefix. Editable only while the
+               installation serves forms and the tenant has the feature on; otherwise it says why. */-->
+        <div class="ep-panel detail-section" data-testid="application-return-urls">
+            <div class="detail-section-header ep-row" style="justify-content: space-between;">
+                <h2>Form return addresses</h2>
+                <button th:if="${auth.has('CREDENTIALS_MANAGE') and returnUrls.offered}" type="button"
+                        class="ep-btn ep-btn-outline ep-btn-sm"
+                        th:hx-get="@{/tenants/{t}/applications/{a}/return-urls(t=${tenantId},a=${app.id})}"
+                        hx-target="#dialog-mount" hx-swap="innerHTML"
+                        data-testid="return-urls-edit">Edit addresses</button>
+            </div>
+            <div class="detail-section-body">
+                <p class="form-hint" style="margin-top: 0;">
+                    When this application asks for a document's data to be completed in a form, the form may send
+                    the person back to, or link to, a URL that starts with one of these addresses.
+                </p>
+                <p class="form-hint" th:if="${returnUrls.withheld != null and returnUrls.withheld.name() == 'NO_PUBLIC_ADDRESS'}" data-testid="return-urls-withheld">
+                    This installation serves no forms: it has no public address set
+                    (<code>epistola.generation.interactive.public-base-url</code>). Ask your administrator.
+                </p>
+                <p class="form-hint" th:if="${returnUrls.withheld != null and returnUrls.withheld.name() == 'FEATURE_OFF'}" data-testid="return-urls-withheld">
+                    Interactive generation (alpha) is off for this tenant. Turn it on under
+                    <a th:href="@{/tenants/{t}/features(t=${tenantId})}">Feature toggles</a> to set these addresses.
+                </p>
+                <ul style="margin: 0; padding-left: var(--ep-space-5);" data-testid="return-urls-list">
+                    <li th:each="url : ${returnUrls.urls}"><code th:text="${url}">https://cases.example.org/zaken</code></li>
+                    <li th:if="${returnUrls.ownOrigin != null}" class="text-muted">
+                        <code th:text="${returnUrls.ownOrigin}">https://suite.example.org</code> — this installation, always allowed
+                    </li>
+                </ul>
+                <p class="text-muted" th:if="${#lists.isEmpty(returnUrls.urls)}" style="margin-bottom: 0;" data-testid="return-urls-empty">
+                    No addresses of its own yet, so its forms can return only to this installation.
+                </p>
+            </div>
+        </div>
+
         <!-- Keys: one OOB-swappable region, so a create refreshes it behind the still-open reveal and a
              revoke swaps it in place. The model comes from the handler (keyListModel). -->
         <div id="key-list" th:fragment="key-list" class="ep-panel detail-section"

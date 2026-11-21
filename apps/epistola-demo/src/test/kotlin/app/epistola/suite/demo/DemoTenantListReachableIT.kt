@@ -10,6 +10,8 @@ import app.epistola.suite.catalog.namespaces.NamespaceName
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
@@ -85,5 +87,14 @@ class DemoTenantListReachableIT : IntegrationTestBase() {
             assertThat(NamespaceName(default.registry, default.namespace)).isEqualTo(held)
             assertThat(GetCatalogNamespaceHolding(testCatalog(demo, CatalogKey.DEFAULT)).query().refusal).`as`("the demo releases its own catalogs").isNull()
         }
+    }
+
+    @Test
+    fun `the demo tenant has interactive generation on, so its objection decision can ask for a form`() {
+        // Here rather than in a class of its own: it needs the demo booted, as this class does, and
+        // another booted context costs the suite memory.
+        val toggles = withMediator { ResolveFeatureToggles(TenantKey.of(DemoLoader.DEMO_TENANT_ID)).query() }
+
+        assertThat(toggles[KnownFeatures.INTERACTIVE_GENERATION]).isTrue()
     }
 }

@@ -13,6 +13,7 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.interactive.InteractiveState
 import org.jdbi.v3.json.Json
 import tools.jackson.databind.node.ObjectNode
 import java.time.OffsetDateTime
@@ -99,6 +100,21 @@ data class DocumentGenerationRequest(
     val startedAt: OffsetDateTime?,
     val completedAt: OffsetDateTime?,
     val expiresAt: OffsetDateTime?,
+    /** Why it was cancelled; null unless [status] is CANCELLED, and for requests cancelled before 2.1. */
+    val cancelReason: CancelReason? = null,
+    /** When its form was submitted; null for a request that never waited for input. */
+    val submittedAt: OffsetDateTime? = null,
+    /**
+     * Whether it was created with `interactive`, so it has a form row. Every other request skips the
+     * form table entirely. Defaulted so a SELECT that does not ask for `has_form` still maps; a query
+     * whose caller decides on it must select it.
+     */
+    val hasForm: Boolean = false,
+    /**
+     * The form of a request created with `interactive`, when the reading query loaded it; null for a
+     * request without one (contract ADR 0011). Never mapped from a column.
+     */
+    val interactive: InteractiveState? = null,
 ) {
     /** Its catalog, by the name recorded on acceptance (ADR 0034, section 9). */
     val catalogId: app.epistola.suite.common.ids.CatalogId get() = app.epistola.suite.common.ids.CatalogId(requireNotNull(namespace) { "Request $id names no namespace" }, catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
@@ -118,7 +134,7 @@ data class DocumentGenerationRequest(
      * Check if the request can be cancelled.
      */
     val isCancellable: Boolean
-        get() = status in setOf(RequestStatus.PENDING, RequestStatus.IN_PROGRESS)
+        get() = status in setOf(RequestStatus.AWAITING_INPUT, RequestStatus.PENDING, RequestStatus.IN_PROGRESS)
 
     /**
      * Check if this request is part of a batch.
@@ -126,3 +142,10 @@ data class DocumentGenerationRequest(
     val isPartOfBatch: Boolean
         get() = batchId != null
 }
+
+/** Every column [DocumentGenerationRequest] maps, for a query that reads or returns a whole request. */
+const val GENERATION_REQUEST_COLUMNS = """
+    id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, environment_key,
+    release_version, draft_id, draft_label, catalog_version_id, recoveries, data, filename, correlation_id, routing_key, document_key, status,
+    claimed_by, claimed_at, error_message, created_at, started_at, completed_at, expires_at, cancel_reason, submitted_at, has_form
+"""

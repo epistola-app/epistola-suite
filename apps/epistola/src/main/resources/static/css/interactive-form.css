@@ -1,0 +1,385 @@
+/* SPDX-FileCopyrightText: Epistola Nederland B.V. */
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+/* The interactive generation form: a page of its own, without the app's navigation, for a person
+   who may never have seen Epistola. Fields come from data-form/respondent-form.ts. */
+
+.iform-body {
+  background: var(--ep-background);
+  color: var(--ep-foreground);
+}
+
+.iform-page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--ep-space-8) var(--ep-space-4) 0;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+
+.iform-header {
+  max-width: 46rem;
+  margin-bottom: var(--ep-space-6);
+}
+
+.iform-header h1 {
+  margin: 0 0 var(--ep-space-2);
+  font-size: var(--ep-text-3xl);
+  letter-spacing: var(--ep-tracking-tight);
+}
+
+/* The caller's instructions are plain text; their line breaks are kept. */
+.iform-instructions {
+  margin: 0;
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-lg);
+  line-height: var(--ep-leading-relaxed);
+  white-space: pre-line;
+}
+
+.iform-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-4);
+  margin: var(--ep-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.iform-alert {
+  margin-bottom: var(--ep-space-4);
+}
+
+/* ── Layout: fields beside a preview that stays in view ─────────────── */
+
+.iform-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ep-space-6);
+  align-items: start;
+}
+
+.iform-panel {
+  background: var(--ep-card);
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-xl);
+  box-shadow: var(--ep-shadow-xs);
+}
+
+.iform-fields {
+  padding: var(--ep-space-6);
+}
+
+.iform-preview {
+  display: flex;
+  flex-direction: column;
+  padding: var(--ep-space-4);
+}
+
+.iform-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--ep-space-3);
+}
+
+.iform-preview-head h2 {
+  margin: 0;
+  font-size: var(--ep-text-base);
+  font-weight: 600;
+}
+
+.iform-preview-message {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: var(--ep-space-10) var(--ep-space-4);
+  border: 1px dashed var(--ep-border-color);
+  border-radius: var(--ep-radius-lg);
+  color: var(--ep-muted-foreground);
+  text-align: center;
+}
+
+.iform-preview-message:empty {
+  display: none;
+}
+
+.iform-preview-frame {
+  flex: 1;
+  width: 100%;
+  min-height: 70vh;
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  background: var(--ep-muted);
+}
+
+/* Narrow screens: the preview only once asked for, below the fields. */
+@media (max-width: 1023px) {
+  .iform-preview:not([data-open]) {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .iform-layout {
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  }
+
+  .iform-preview {
+    position: sticky;
+    top: var(--ep-space-4);
+    height: calc(100vh - 7rem);
+  }
+
+  .iform-preview-frame {
+    min-height: 0;
+  }
+
+  /* Wide screens show the preview always; the footer button is for narrow ones. */
+  .iform-actions [data-form-preview] {
+    display: none;
+  }
+}
+
+/* ── Fields ─────────────────────────────────────────────────────────── */
+
+.iform-fieldset-root,
+.iform-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-5);
+}
+
+.iform-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-1-5);
+}
+
+.iform-label {
+  font-weight: 500;
+  font-size: var(--ep-text-sm);
+}
+
+.iform-required {
+  margin-left: var(--ep-space-1);
+  color: var(--ep-destructive);
+}
+
+.iform-help {
+  margin: 0;
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+}
+
+.iform-field .iform-help {
+  margin-top: calc(-1 * var(--ep-space-1));
+}
+
+.iform-field .ep-input,
+.iform-field .ep-select,
+.iform-field .ep-textarea {
+  width: 100%;
+}
+
+.iform-field .iform-input-short {
+  max-width: 16rem;
+}
+
+.iform-error {
+  margin: 0;
+  color: var(--ep-destructive);
+  font-size: var(--ep-text-sm);
+  font-weight: 500;
+}
+
+.iform-field[data-invalid] .ep-input,
+.iform-field[data-invalid] .ep-select,
+.iform-field[data-invalid] .ep-textarea {
+  border-color: var(--ep-destructive);
+}
+
+.iform-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ep-space-2);
+  font-size: var(--ep-text-sm);
+  cursor: pointer;
+}
+
+.iform-check input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--ep-primary);
+}
+
+.iform-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ep-space-2) var(--ep-space-5);
+}
+
+/* A group: a titled block of fields, always open. The legend floats so it lays out as a block:
+   a full-width title with a rule under it, not a gap in the fieldset's border. */
+.iform-group {
+  margin: var(--ep-space-2) 0 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.iform-legend {
+  float: left;
+  width: 100%;
+  padding: 0 0 var(--ep-space-2);
+  margin-bottom: var(--ep-space-3);
+  border-bottom: 1px solid var(--ep-border-color);
+  font-size: var(--ep-text-lg);
+  font-weight: 600;
+}
+
+.iform-legend + * {
+  clear: both;
+}
+
+.iform-group > .iform-help {
+  margin: calc(-1 * var(--ep-space-1)) 0 var(--ep-space-4);
+}
+
+/* Groups inside groups (and inside list items) are indented, not ruled. */
+.iform-group-body .iform-group {
+  padding: var(--ep-space-4);
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-lg);
+  background: var(--ep-background);
+}
+
+.iform-group-body .iform-group .iform-legend {
+  padding: 0;
+  border-bottom: 0;
+  font-size: var(--ep-text-base);
+}
+
+/* Lists */
+.iform-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ep-space-3);
+  margin-bottom: var(--ep-space-3);
+}
+
+.iform-list-empty {
+  margin: 0;
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+}
+
+.iform-item {
+  padding: var(--ep-space-4);
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-lg);
+  background: var(--ep-background);
+}
+
+.iform-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--ep-space-3);
+}
+
+.iform-item-title {
+  font-weight: 600;
+  font-size: var(--ep-text-sm);
+}
+
+.iform-item-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ep-space-2);
+}
+
+.iform-item-row-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.iform-group[data-invalid] > .iform-add {
+  border-color: var(--ep-destructive);
+}
+
+.iform-empty {
+  margin: 0;
+  color: var(--ep-muted-foreground);
+}
+
+/* ── Actions: always at the bottom of the screen ────────────────────── */
+
+.iform-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--ep-z-sticky);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ep-space-3);
+  margin: var(--ep-space-6) calc(-1 * var(--ep-space-4)) 0;
+  padding: var(--ep-space-3) var(--ep-space-4);
+  background: color-mix(in srgb, var(--ep-background) 92%, transparent);
+  backdrop-filter: blur(6px);
+  border-top: 1px solid var(--ep-border-color);
+}
+
+.iform-progress {
+  margin: 0;
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+}
+
+.iform-progress[data-done] {
+  color: var(--ep-success);
+  font-weight: 500;
+}
+
+.iform-actions-buttons,
+.iform-actions-buttons form {
+  display: flex;
+  gap: var(--ep-space-2);
+}
+
+.iform-expiry {
+  margin: 0;
+  padding: var(--ep-space-3) 0 var(--ep-space-8);
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+  text-align: center;
+}
+
+.iform-ended {
+  max-width: 40rem;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .iform-page {
+    padding-top: var(--ep-space-6);
+  }
+
+  .iform-header h1 {
+    font-size: var(--ep-text-2xl);
+  }
+
+  .iform-fields {
+    padding: var(--ep-space-4);
+  }
+
+  .iform-actions-buttons {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

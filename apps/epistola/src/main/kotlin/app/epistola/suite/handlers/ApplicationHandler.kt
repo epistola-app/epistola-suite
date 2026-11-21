@@ -11,6 +11,7 @@ import app.epistola.suite.applications.Application
 import app.epistola.suite.applications.MAX_APPLICATION_DESCRIPTION_LENGTH
 import app.epistola.suite.applications.commands.CreateApplication
 import app.epistola.suite.applications.commands.DeleteApplication
+import app.epistola.suite.applications.commands.SetApplicationReturnUrls
 import app.epistola.suite.applications.commands.SetUnattributedDocumentsOwner
 import app.epistola.suite.applications.commands.UpdateApplication
 import app.epistola.suite.applications.queries.GetApplication
@@ -18,6 +19,9 @@ import app.epistola.suite.applications.queries.ListApplications
 import app.epistola.suite.common.ids.ApiKeyKey
 import app.epistola.suite.common.ids.ApplicationKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.documents.interactive.InteractiveGenerationProperties
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.queries.ResolveFeatureToggles
 import app.epistola.suite.htmx.FormData
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.form
@@ -45,7 +49,7 @@ import java.time.format.DateTimeParseException
  * revoked on the application's page, so rotating one never changes who owns the documents.
  */
 @Component
-class ApplicationHandler {
+class ApplicationHandler(private val interactiveProperties: InteractiveGenerationProperties) {
 
     fun list(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
@@ -220,6 +224,73 @@ class ApplicationHandler {
         }
     }
 
+    /** `GET …/{applicationId}/return-urls`: the dialog that edits where the application's forms may return to. */
+    fun returnUrlsForm(request: ServerRequest): ServerResponse {
+        val tenantKey = request.tenantId().key
+        requirePermission(tenantKey, Permission.CREDENTIALS_MANAGE)
+        val application = application(request) ?: return ServerResponse.notFound().build()
+        return request.htmx {
+            fragment(RETURN_URLS_DIALOG, "dialog") { returnUrlsModel(tenantKey, application) }
+            onFullPage { redirect(detailUrl(tenantKey, application.id)) }
+        }
+    }
+
+    /**
+     * `POST …/{applicationId}/return-urls`: replaces the starts of the URLs the application's forms
+     * may send a person back to, one per line ([SetApplicationReturnUrls]).
+     */
+    fun saveReturnUrls(request: ServerRequest): ServerResponse {
+        val tenantKey = request.tenantId().key
+        requirePermission(tenantKey, Permission.CREDENTIALS_MANAGE)
+        val application = application(request) ?: return ServerResponse.notFound().build()
+        val form = request.form { field("urls") { maxLength(MAX_RETURN_URLS_TEXT) } }
+        val urls = form["urls"].lines().map { it.trim() }.filter { it.isNotEmpty() }
+        val errors = form.errors.toMutableMap()
+        if (errors.isEmpty()) {
+            try {
+                SetApplicationReturnUrls(tenantKey, application.id, urls).execute()
+            } catch (e: ValidationException) {
+                errors["urls"] = e.message
+            }
+        }
+        if (errors.isNotEmpty()) {
+            return request.htmx {
+                dialogFieldErrors(
+                    template = RETURN_URLS_DIALOG,
+                    fragmentName = "return-urls-form",
+                    formTarget = "#return-urls-form",
+                    formData = FormData(form.formData, errors),
+                ) { returnUrlsModel(tenantKey, application) }
+                onFullPage { redirect(detailUrl(tenantKey, application.id)) }
+            }
+        }
+        val detailUrl = detailUrl(tenantKey, application.id)
+        return request.htmx {
+            dialogRedirect(detailUrl)
+            onFullPage { redirect(detailUrl) }
+        }
+    }
+
+    private fun ModelBuilder.returnUrlsModel(tenantKey: TenantKey, application: Application) {
+        "tenantId" to tenantKey
+        "app" to application
+        "returnUrls" to returnUrls(tenantKey, application)
+    }
+
+    /** Where the application's forms may return to, and whether there is anything to set it for. */
+    private fun returnUrls(tenantKey: TenantKey, application: Application): ApplicationReturnUrls {
+        val toggleOn = ResolveFeatureToggles(tenantKey).query()[KnownFeatures.INTERACTIVE_GENERATION] == true
+        return ApplicationReturnUrls(
+            urls = application.allowedReturnUrls,
+            ownOrigin = interactiveProperties.ownOrigin,
+            withheld = when {
+                !interactiveProperties.configured -> ApplicationReturnUrls.Withheld.NO_PUBLIC_ADDRESS
+                !toggleOn -> ApplicationReturnUrls.Withheld.FEATURE_OFF
+                else -> null
+            },
+        )
+    }
+
     /**
      * Makes the application the owner of the tenant's unattributed documents (taking them from the
      * previous owner), or stops it being their owner.
@@ -375,6 +446,7 @@ class ApplicationHandler {
         // this one the owner takes them from it, and the page says so.
         "unattributedOwner" to ListApplications(tenantKey).query()
             .firstOrNull { it.ownsUnattributedDocuments && it.id != application.id }
+        "returnUrls" to returnUrls(tenantKey, application)
         keyListModel(tenantKey, application.id)
     }
 
@@ -439,6 +511,10 @@ class ApplicationHandler {
         /** The dialogs the application page embeds when opened directly at their URL. */
         private const val NEW_KEY_DIALOG = "applications/new-key"
         private const val EDIT_DIALOG = "applications/edit"
+        private const val RETURN_URLS_DIALOG = "applications/return-urls"
+
+        /** Room for [SetApplicationReturnUrls.MAX_URLS] entries of the longest length, one per line. */
+        const val MAX_RETURN_URLS_TEXT = SetApplicationReturnUrls.MAX_URLS * (SetApplicationReturnUrls.MAX_URL_LENGTH + 1)
 
         // Order mirrors the privilege ladder. Viewer is pre-checked so the narrowest scope is the
         // default; administration is offered but never pre-selected.
@@ -459,4 +535,21 @@ class ApplicationHandler {
         /** Role enum name → short human label. */
         val ROLE_LABELS: Map<String, String> = ROLE_OPTIONS.associate { it.value to it.label }
     }
+}
+
+/**
+ * Where an application's interactive generation forms may send a person back to, or link to: the
+ * starts of URLs it allows, and this installation's own address, which is always allowed.
+ */
+data class ApplicationReturnUrls(
+    val urls: List<String>,
+    /** This installation's origin; null when it has no public address. */
+    val ownOrigin: String?,
+    /** Why there is nothing to set the list for; null when it can be used. */
+    val withheld: Withheld?,
+) {
+    /** The list can be edited: the installation serves forms and the tenant has the feature on. */
+    val offered: Boolean get() = withheld == null
+
+    enum class Withheld { NO_PUBLIC_ADDRESS, FEATURE_OFF }
 }
