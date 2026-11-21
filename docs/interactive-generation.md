@@ -9,7 +9,7 @@ fills in the form, with a preview, and submits; the job then renders like any ot
 
 The form is the only Suite page reachable without signing in. How it is secured is in
 [`auth.md`](auth.md#the-interactive-generation-form-no-sign-in) and
-[ADR 0055](adr/0055-interactive-generation-form-without-sign-in.md). Where a request keeps its form is [ADR 0056](adr/0056-where-an-interactive-request-keeps-its-form.md) (proposed).
+[ADR 0055](adr/0055-interactive-generation-form-without-sign-in.md). Where a request keeps its form is [ADR 0056](adr/0056-where-an-interactive-request-keeps-its-form.md).
 
 ## The flow
 

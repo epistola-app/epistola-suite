@@ -1,6 +1,6 @@
 # ADR 0056: Where an interactive generation request keeps its form
 
-- **Status:** Proposed (2026-11-21)
+- **Status:** Accepted — implemented (alpha, with interactive generation)
 - **Date:** 2026-11-21
 - **Deciders:** Epistola team
 - **Tags:** database, generation, partitioning, retention, personal-data
@@ -15,94 +15,89 @@ the caller's texts (title, instructions, links), the return URL, the locale, wha
 missing, the data exactly as the caller sent it, what the person changed, and who asked. The request's
 own `data` becomes what the person submits.
 
-The first build, unreleased, keeps the form in a table of its own, `generation_request_interactions`,
-partitioned like `document_generation_requests` (monthly, on the request's `created_at`) and given
-the same retention, so old months of both are dropped in the same maintenance run. Requests record
-`has_form`, so the many without one skip the form table: looked up by request id alone, it probes
-every partition.
+Two things are coming that decide where that state lives:
 
-Reviewing the migration before it ships showed what keeping two tables in step costs.
+- **Saving along the way.** The form will save what the person has filled in while they work, so they
+  can leave and come back. Today a form is written twice, at acceptance and at submit; with saving it is
+  written many times while the request waits.
+- **Form designs.** Authors will design the form (layout, order, steps) rather than it being generated
+  from the data contract. The design belongs to the template; each request keeps more state of its own
+  against it (progress, the step reached, what was saved).
+
+`document_generation_requests` is the pipeline's hot table: the job poller claims rows from it
+(`FOR UPDATE SKIP LOCKED`), updates their status, and stale-job recovery scans it. It is partitioned
+monthly on `created_at` and dropped by retention.
+
+Reviewing the migration before it shipped showed what keeping a form apart from its request costs.
 
 - **Row deletes are not partition drops.** Requests are deleted by the cascades from their tenant,
   template, variant, version and environment. Their forms stayed behind, with the caller's data and
-  texts — personal data with no owner left. Retention alone does not cover this.
+  texts — personal data with no owner left. Shared retention alone does not cover this.
 - **A foreign key cannot carry the delete.** Retention drops an old request partition with
   `DROP TABLE … CASCADE`. On PostgreSQL 17 and 18 that drops a foreign key between two partitioned
   tables _whole_, with only a NOTICE: after the first retention run nothing would be enforced, and
   nothing would say so. (Checked on both versions with the drop exactly as
   `epistola_drop_partitions_before` runs it.)
-- **So the first build now uses a trigger.** `AFTER DELETE` on the requests, `WHEN (OLD.has_form)`,
-  deletes the form. On both versions it survives retention drops and reaches partitions created later.
-  It works, but it is a second mechanism to keep the two tables in step, beside the shared retention
-  and the `has_form` flag.
-
-Every read of a job with a form also pays for the second table: the job status and listing attach
-forms in a second query (`InteractiveStates`), result emission joins the form for `data` and
-`editedFields`, and the expiry sweep starts from the requests and joins forms.
-
-The migration has never been released, so it can still be edited in place. Once it ships, changing
-where the form lives means a data-moving migration on two of the largest tables.
 
 ## Options
 
-### A. A separate, identically partitioned table, kept in step by a trigger (as built)
+### A. A separate table, partitioned like the requests, kept in step by a trigger
 
+- Writes to the form — every save while the person works, and whatever form designs add — land in a
+  table of its own, not on the rows the poller claims and updates.
 - Requests without a form carry nothing of it.
-- Three mechanisms keep the tables in step: shared retention, the `has_form` flag, the delete trigger.
-  Each was needed because the one before it did not cover a case.
-- A second query or join on the job status, listing, result emission and the expiry sweep.
-- Separating the personal data protects nothing: the request's own `data` is already personal data in
-  `document_generation_requests`.
+- Three mechanisms keep the two tables in step: shared retention (same partition key, same months, same
+  retention), `has_form` on the request, and a delete trigger.
+- The job status, listing, result emission and the expiry sweep read the form in a second query or a
+  join, only for requests with `has_form` (measured: hundredths of a millisecond per call,
+  `docs/interactive-generation-load-impact.md`).
 
 ### B. The form's columns on `document_generation_requests`
 
-About ten nullable columns: `interactive_trigger`, `interactive_expires_at`, `return_url`, `title`,
-`instructions`, `links`, `locale`, `missing_fields`, `caller_data`, `edited_fields`, `requested_by`.
-
-- Deletes and retention need nothing: the form is the request's row.
-- No trigger, no `has_form` (a non-null `interactive_trigger` says the request has a form), no second
-  query, no join.
-- A null column costs a bit in the row's null bitmap; JSON values over about 2 kB are stored out of
-  line (TOAST), and a status update copies only a pointer to them. Requests without a form barely
-  change.
-- The requests table is the poller's hot table: it claims rows (`FOR UPDATE SKIP LOCKED`) and updates
-  their status. Rows with a form get wider; small inline JSON is copied on each status update.
+- One row, one lifecycle: deletes and retention need no trigger or flag, and no read needs a second
+  query.
+- Every save while the person works becomes an update of a hot row: a new row version each time, bloat
+  and vacuum work on the table the poller works on. Every piece of state form designs add becomes a
+  column of the pipeline's most important table, which then mixes two concerns.
 
 ### C. A separate table with a foreign key to the requests
 
-Rejected: the first retention run drops the foreign key without saying so (see Context).
+- The first retention run drops the foreign key without saying so (see Context).
 
-## Decision (proposed)
+## Decision
 
-**B.** The form lives in columns of the request it belongs to.
+**A.** The form lives in `generation_request_interactions`, beside its request:
 
-The decisive reason is that one row has one lifecycle. Every problem found in review — orphaned forms,
-the vanishing foreign key, the trigger to replace it — exists only because the form has a row of its
-own that must be kept in step with the request's. Option B removes that class of problem rather than
-adding a mechanism per case, and removes a query or join from each hot path of the pipeline.
+- partitioned on the request's `created_at`, so it falls in the request's month, and given the
+  requests' retention, so retention drops both in the same run (`CorePartitionedTables`);
+- found from the request through `has_form`, so the many requests without a form never look it up;
+- deleted with its request by `trg_requests_delete_interaction` (`AFTER DELETE … WHEN (OLD.has_form)`),
+  which survives retention drops and is cloned onto partitions created later (checked on PostgreSQL 17
+  and 18).
 
-To be confirmed before acceptance: the claim and status-update path is not measurably slower with
-form rows present. The load measurement of `docs/interactive-generation-load-impact.md` is repeated
-on the merged schema, against the same baseline.
+B is rejected because saving along the way and form designs would put a form's frequent writes and
+growing state on the hot table. Option A's cost — keeping two tables in step — is paid once, in the
+schema, and tested; B's would be paid on every save, in the pipeline. C is rejected because retention
+silently removes the foreign key.
 
 ## Consequences
 
-- The unreleased migration `V20261119170913__core_interactive_generation.sql` is rewritten: the form
-  table, its index, the trigger and `has_form` go; the columns join `document_generation_requests`.
-  `generation_form_link_redemptions` (redeemed link nonces) stays a table of its own: it belongs to no
-  request row and lives minutes.
-- `InteractiveStates`, `InteractiveForms`, `GenerateDocument`, `GetInteractiveForm`,
-  `SubmitInteractiveForm`, `CancelInteractiveForm`, `ExpireInteractiveForms`, `PreviewInteractiveForm`,
-  `EmitGenerationResult` and the job queries read and write the request's own columns. The migration
-  chain snapshot (`migration-chain/intended.txt`) and the load-impact document follow.
-- The expiry sweep finds waiting requests through the existing status index, as it does now.
-- If the measurement shows the claim path slower, this ADR is revisited before the migration ships,
-  not after.
+- The trigger is load-bearing: it is what keeps personal data from outliving its request. It is
+  covered by `InteractiveGenerationIntegrationTest` (deleting the tenant leaves no form). A new way to
+  remove requests that fires no row trigger (`TRUNCATE`, dropping a partition outside retention) must
+  remove the forms itself.
+- Saving along the way writes to `generation_request_interactions` only; it must not touch the request
+  row until submit, or it brings the churn back to the hot table.
+- Per-request state that form designs add belongs in `generation_request_interactions` (or a table
+  beside it), never on `document_generation_requests`. The design itself belongs to the template.
+- A form's month is its request's: rows must be written with the request's `created_at`, never their
+  own time, or they land in another partition and retention drops them at another time.
+- `generation_form_link_redemptions` (redeemed link nonces) stays a table of its own: it belongs to no
+  request and lives minutes.
 
 ## Open question, separate from this decision
 
 `generation_results` deliberately has no foreign key to the tenant: results survive tenant deletion
 so collectors can still read them. Interactive generation copies the submitted `data` and
 `editedFields` into the results, so a deleted tenant's form data stays until results retention (one
-month by default). Proposed: `DeleteTenant` clears those two columns on the tenant's results. This
-needs no schema change, and holds whichever option is chosen above.
+month by default). Proposed: `DeleteTenant` clears those two columns on the tenant's results.
