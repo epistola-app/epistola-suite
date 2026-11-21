@@ -6,13 +6,13 @@ package app.epistola.suite.documents
 
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.UserKey
-import app.epistola.suite.documents.interactive.InteractiveFormLinks
+import app.epistola.suite.documents.InstallationSigner.Companion.decode
+import app.epistola.suite.documents.InstallationSigner.Companion.encode
 import app.epistola.suite.time.EpistolaClock
 import org.springframework.stereotype.Component
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.time.OffsetDateTime
-import java.util.Base64
 import java.util.UUID
 
 /**
@@ -24,12 +24,12 @@ import java.util.UUID
  * take a token, and answer only when it is valid, unexpired and names the signed-in person. A token
  * that leaks (browser history, the form's return URL, a screenshot) is of no use to anyone else.
  *
- * Signed with the form links' key ([InteractiveFormLinks]) under a purpose of its own, so a form
- * link code or session is never accepted as a job token, nor the other way round. Deleting that key
- * rotates both. Nothing is stored per token.
+ * Signed with the installation's key ([InstallationSigner]) under a purpose of its own, so a form
+ * link code or session is never accepted as a job token, nor the other way round. Nothing is stored
+ * per token.
  */
 @Component
-class GenerationJobTokens(private val formLinks: InteractiveFormLinks) {
+class GenerationJobTokens(private val signer: InstallationSigner) {
 
     /** A token for [user] to follow [requestId] until [expiresAt]. */
     fun issue(requestId: GenerationRequestKey, user: UserKey, expiresAt: OffsetDateTime): String {
@@ -40,7 +40,7 @@ class GenerationJobTokens(private val formLinks: InteractiveFormLinks) {
             .putLong(user.value.leastSignificantBits)
             .putLong(expiresAt.toEpochSecond())
             .array()
-        return "${b64(payload)}.${b64(formLinks.mac(PURPOSE, payload))}"
+        return "${encode(payload)}.${encode(signer.mac(PURPOSE, payload))}"
     }
 
     /** The request [token] lets [user] follow, or null when it is forged, expired or someone else's. */
@@ -49,17 +49,13 @@ class GenerationJobTokens(private val formLinks: InteractiveFormLinks) {
         if (parts.size != 2 || token.length > MAX_TOKEN_LENGTH) return null
         val payload = decode(parts[0])?.takeIf { it.size == PAYLOAD_BYTES } ?: return null
         val signature = decode(parts[1]) ?: return null
-        if (!MessageDigest.isEqual(formLinks.mac(PURPOSE, payload), signature)) return null
+        if (!MessageDigest.isEqual(signer.mac(PURPOSE, payload), signature)) return null
         val buffer = ByteBuffer.wrap(payload)
         val requestId = UUID(buffer.long, buffer.long)
         if (UUID(buffer.long, buffer.long) != user.value) return null
         if (buffer.long <= EpistolaClock.instant().epochSecond) return null
         return GenerationRequestKey(requestId)
     }
-
-    private fun decode(part: String): ByteArray? = runCatching { Base64.getUrlDecoder().decode(part) }.getOrNull()
-
-    private fun b64(bytes: ByteArray): String = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
 
     private companion object {
         const val PURPOSE = "epistola.generation-job-token.v1:"

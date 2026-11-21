@@ -54,7 +54,7 @@ request, written only into the form's own page. Another site can make the browse
 
 ### 3. One key, a purpose per kind of token
 
-One random key per installation, stored in `app_metadata`, signs every kind of token: link codes,
+One random key per installation, stored in `app_metadata` and held by `InstallationSigner`, signs every kind of token: link codes,
 sessions, guards, and the UI's job tokens (below). Each kind has its own purpose label inside the
 MAC, so none passes for another. Deleting the key rotates all of them at once. Nothing is stored per
 token except the redeemed nonces.
