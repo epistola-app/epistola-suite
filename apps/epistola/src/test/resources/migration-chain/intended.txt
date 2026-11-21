@@ -2559,6 +2559,7 @@ PARTITION BY RANGE (created_at)
     tenant_key public.tenant_key NOT NULL
 )
 + CREATE TABLE public.applications (
+    allowed_return_urls text[] DEFAULT '{}'::text[] NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     created_by uuid,
     description character varying(500),
@@ -2570,11 +2571,13 @@ PARTITION BY RANGE (created_at)
     tenant_key public.tenant_key NOT NULL
 )
 + CREATE TABLE public.document_generation_requests (
+    CONSTRAINT chk_requests_cancel_reason CHECK (((cancel_reason)::text = ANY ((ARRAY['CALLER'::character varying, 'USER'::character varying, 'EXPIRED'::character varying])::text[]))),
     CONSTRAINT chk_requests_release_or_draft CHECK (((release_version IS NULL) OR (draft_id IS NULL))),
     CONSTRAINT chk_requests_render_source CHECK (((version_key IS NOT NULL) OR (environment_key IS NOT NULL) OR (release_version IS NOT NULL) OR (draft_id IS NOT NULL))),
-    CONSTRAINT document_generation_requests_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'IN_PROGRESS'::character varying, 'COMPLETED'::character varying, 'FAILED'::character varying, 'CANCELLED'::character varying])::text[]))),
+    CONSTRAINT document_generation_requests_status_check CHECK (((status)::text = ANY ((ARRAY['AWAITING_INPUT'::character varying, 'PENDING'::character varying, 'IN_PROGRESS'::character varying, 'COMPLETED'::character varying, 'FAILED'::character varying, 'CANCELLED'::character varying])::text[]))),
     application_id uuid,
     batch_id uuid,
+    cancel_reason character varying(16),
     catalog_key public.catalog_key DEFAULT 'default'::character varying NOT NULL,
     catalog_version_id text,
     claimed_at timestamp with time zone,
@@ -2590,6 +2593,7 @@ PARTITION BY RANGE (created_at)
     error_message text,
     expires_at timestamp with time zone,
     filename character varying(255),
+    has_form boolean DEFAULT false NOT NULL,
     id uuid NOT NULL,
     namespace text NOT NULL,
     recoveries integer DEFAULT 0 NOT NULL,
@@ -2598,6 +2602,7 @@ PARTITION BY RANGE (created_at)
     routing_key text,
     started_at timestamp with time zone,
     status character varying(20) NOT NULL,
+    submitted_at timestamp with time zone,
     template_key public.template_key NOT NULL,
     template_resource_id uuid,
     tenant_key public.tenant_key NOT NULL,
@@ -2606,11 +2611,13 @@ PARTITION BY RANGE (created_at)
 )
 PARTITION BY RANGE (created_at)
 + CREATE TABLE public.document_generation_requests_202606 (
+    CONSTRAINT chk_requests_cancel_reason CHECK (((cancel_reason)::text = ANY ((ARRAY['CALLER'::character varying, 'USER'::character varying, 'EXPIRED'::character varying])::text[]))),
     CONSTRAINT chk_requests_release_or_draft CHECK (((release_version IS NULL) OR (draft_id IS NULL))),
     CONSTRAINT chk_requests_render_source CHECK (((version_key IS NOT NULL) OR (environment_key IS NOT NULL) OR (release_version IS NOT NULL) OR (draft_id IS NOT NULL))),
-    CONSTRAINT document_generation_requests_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'IN_PROGRESS'::character varying, 'COMPLETED'::character varying, 'FAILED'::character varying, 'CANCELLED'::character varying])::text[]))),
+    CONSTRAINT document_generation_requests_status_check CHECK (((status)::text = ANY ((ARRAY['AWAITING_INPUT'::character varying, 'PENDING'::character varying, 'IN_PROGRESS'::character varying, 'COMPLETED'::character varying, 'FAILED'::character varying, 'CANCELLED'::character varying])::text[]))),
     application_id uuid,
     batch_id uuid,
+    cancel_reason character varying(16),
     catalog_key public.catalog_key DEFAULT 'default'::character varying NOT NULL,
     catalog_version_id text,
     claimed_at timestamp with time zone,
@@ -2626,6 +2633,7 @@ PARTITION BY RANGE (created_at)
     error_message text,
     expires_at timestamp with time zone,
     filename character varying(255),
+    has_form boolean DEFAULT false NOT NULL,
     id uuid NOT NULL,
     namespace text NOT NULL,
     recoveries integer DEFAULT 0 NOT NULL,
@@ -2634,6 +2642,7 @@ PARTITION BY RANGE (created_at)
     routing_key text,
     started_at timestamp with time zone,
     status character varying(20) NOT NULL,
+    submitted_at timestamp with time zone,
     template_key public.template_key NOT NULL,
     template_resource_id uuid,
     tenant_key public.tenant_key NOT NULL,
@@ -2692,17 +2701,21 @@ PARTITION BY RANGE (created_at)
     version_key integer
 )
 + CREATE TABLE public.generation_results (
+    CONSTRAINT chk_results_cancel_reason CHECK (((cancel_reason)::text = ANY ((ARRAY['CALLER'::character varying, 'USER'::character varying, 'EXPIRED'::character varying])::text[]))),
     application_id uuid,
     batch_id uuid,
+    cancel_reason character varying(16),
     catalog_key text,
     catalog_version_id text,
     completed_at timestamp with time zone NOT NULL,
     content_type text,
     correlation_id text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    data jsonb,
     document_id uuid,
     draft_id character varying(36),
     draft_label character varying(100),
+    edited_fields jsonb,
     error text,
     filename text,
     namespace text,
@@ -2721,17 +2734,21 @@ PARTITION BY RANGE (created_at)
 )
 PARTITION BY RANGE (created_at)
 + CREATE TABLE public.generation_results_<month> (
+    CONSTRAINT chk_results_cancel_reason CHECK (((cancel_reason)::text = ANY ((ARRAY['CALLER'::character varying, 'USER'::character varying, 'EXPIRED'::character varying])::text[]))),
     application_id uuid,
     batch_id uuid,
+    cancel_reason character varying(16),
     catalog_key text,
     catalog_version_id text,
     completed_at timestamp with time zone NOT NULL,
     content_type text,
     correlation_id text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    data jsonb,
     document_id uuid,
     draft_id character varying(36),
     draft_label character varying(100),
+    edited_fields jsonb,
     error text,
     filename text,
     namespace text,
@@ -2782,3 +2799,44 @@ new generation_results.application_id
 	CONSTRAINT theme_key_check CHECK (((VALUE)::text ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text))
 + CREATE DOMAIN public.variant_key AS character varying(50)
 	CONSTRAINT variant_key_check CHECK (((VALUE)::text ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text))
+
+# Added after the chain: interactive generation (V20261119170913, ADR 0055). A request can wait for
+# a person to complete its data in a form: its form, the opened single-use links, and a result can be
+# CANCELLED. An application lists where its forms may return to (allowed_return_urls). The tables it
+# changes are listed above with their new columns.
++ ALTER TABLE ONLY public.generation_form_link_redemptions
+    ADD CONSTRAINT generation_form_link_redemptions_pkey PRIMARY KEY (nonce)
++ ALTER TABLE ONLY public.generation_request_interactions
+    ADD CONSTRAINT generation_request_interactions_pkey PRIMARY KEY (request_id, created_at)
++ CREATE DOMAIN public.generation_result_status AS text
+	CONSTRAINT generation_result_status_check CHECK ((VALUE = ANY (ARRAY['COMPLETED'::text, 'FAILED'::text, 'CANCELLED'::text])))
++ CREATE INDEX idx_interactions_request ON ONLY public.generation_request_interactions USING btree (request_id)
++ CREATE TABLE public.generation_form_link_redemptions (
+    expires_at timestamp with time zone NOT NULL,
+    nonce character(22) NOT NULL
+)
++ CREATE TABLE public.generation_request_interactions (
+    CONSTRAINT chk_interactions_trigger CHECK (((trigger)::text = ANY ((ARRAY['INCOMPLETE'::character varying, 'ALWAYS'::character varying])::text[]))),
+    caller_data jsonb NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    edited_fields jsonb,
+    expires_at timestamp with time zone,
+    instructions text,
+    links jsonb DEFAULT '[]'::jsonb NOT NULL,
+    locale character varying(35),
+    missing_fields jsonb DEFAULT '[]'::jsonb NOT NULL,
+    request_id uuid NOT NULL,
+    return_url text,
+    tenant_key public.tenant_key NOT NULL,
+    title text,
+    trigger character varying(16) NOT NULL
+)
+PARTITION BY RANGE (created_at)
+- CREATE DOMAIN public.generation_result_status AS text
+	CONSTRAINT generation_result_status_check CHECK ((VALUE = ANY (ARRAY['COMPLETED'::text, 'FAILED'::text])))
+new document_generation_requests.cancel_reason
+new document_generation_requests.submitted_at
+new document_generation_requests.has_form false
+new generation_results.cancel_reason
+new generation_results.data
+new generation_results.edited_fields
