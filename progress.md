@@ -137,8 +137,17 @@ the person (`GenerationJobTokens`); an environment following a draft renders tha
 - ✅ `InteractiveFormHandlerTest` (7, app): redeem → cookie + clean URL, neutral page, guard,
   submit/cancel redirects, preview, headers. `InteractiveFormUiTest` (2, Playwright): fill, preview,
   submit under the strict CSP. `data-form-lib.test.ts` (2).
-- ✅ `InteractiveGenerationApiIT` (6 of 7, app): contract scenarios 400, 401, 403–406 over HTTP.
-  One test is disabled, see below.
+- ✅ `InteractiveGenerationApiIT` (7, app): contract scenarios 400, 401, 403–406 over HTTP; the
+  return-URL test is back on since contract 2.1.1 (released 20 November).
+- ✅ Security review (21 November), two findings fixed, each shown failing first: (1) the job status
+  handed a fresh form link to every reader of a job (`DOCUMENT_VIEW` reads the tenant), so a reader
+  could submit or cancel another application's form — now only the caller that asked gets one
+  (`generation_request_interactions.requested_by`, ADR 0055 §8; core +2 tests); (2) the form page
+  wrote its JSON into `<script>` raw, so `</script>` in a contract text or a caller's data key added
+  markup — now `<`, `>`, `&` are `\u`-escaped (`InteractiveFormHandlerTest` +1). Hardening: the form
+  pages send `form-action 'self'` plus the return address's origin (Chrome holds the redirect after
+  a post to it; `InteractiveFormUiTest` failed with `'self'` alone). The CodeQL "CSRF disabled" alert
+  on the forms chain was dismissed as by design (ADR 0055 §2).
 - ✅ unit: `OriginsTest`, `EditedFieldsTest`, `ReturnUrlsTest`, `ApiValidationCodesTest`,
   `KnownFeaturesTest`; generation/collect/document/partition core tests (179) and
   `SchemaHygieneAppTest` green.
@@ -147,10 +156,9 @@ the person (`GenerationJobTokens`); an environment following a draft renders tha
 
 **Noticed, untouched:**
 
-- **Contract 2.1.0 bug:** `returnUrl` and `links[].url` declare `pattern: '^https?://'`, a prefix
-  in JSON Schema, which the generated Bean Validation `@Pattern` must match in full, so every real
-  URL is refused (400 `pattern`). Needs a contract patch (e.g. `^https?://\S+$`). The code-list
-  `sourceUrl` patterns (`^https://`) have the same shape and likely the same defect.
+- ~~**Contract 2.1.0 bug:** `returnUrl` and `links[].url` declared `pattern: '^https?://'`, which
+  Bean Validation matches in full, so every real URL was refused.~~ Fixed in contract 2.1.1 (anchored
+  patterns, also the code lists' `sourceUrl`); the suite is on 2.1.1.
 - `listGenerationJobs` parses `status` with `RequestStatus.valueOf`, while the contract sends
   `pending`, `in-progress`, … (and has no `awaiting-input` value), so filtering by status cannot
   work as specified. Predates this branch.
