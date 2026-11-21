@@ -556,6 +556,20 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `deleting the tenant keeps its results for collectors, without the form data they carried`() = withReleasedTemplate { setup ->
+        val request = execute(setup.generate("""{"customer": {}}""", incomplete))
+        execute(SubmitInteractiveForm(request.id, sessionOn(request), json(complete)))
+        drainGenerationJobs(setup.tenant.id)
+        awaitIdleJobPoller()
+        assertThat(results(request).single()).isEqualTo(ResultLine("COMPLETED", null, hasData = true))
+
+        execute(DeleteTenant(setup.tenant.id))
+
+        assertThat(results(request).single()).`as`("the result stays, its data and edited fields go").isEqualTo(ResultLine("COMPLETED", null, hasData = false))
+        assertThat(resultEditedFieldsOrNull(request)).isNull()
+    }
+
+    @Test
     fun `cancelling on the form records the person and delivers a cancelled result`() = withReleasedTemplate { setup ->
         val request = execute(setup.generate("{}", InteractiveGeneration(InteractiveTrigger.INCOMPLETE, returnUrl = "https://suite.test/back")))
 
@@ -659,6 +673,10 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
 
     private fun requestRows(request: DocumentGenerationRequest): Int = jdbi.withHandle<Int, Exception> { handle ->
         handle.createQuery("SELECT count(*) FROM document_generation_requests WHERE id = :id").bind("id", request.id.value).mapTo(Int::class.java).one()
+    }
+
+    private fun resultEditedFieldsOrNull(request: DocumentGenerationRequest): String? = jdbi.withHandle<String?, Exception> { handle ->
+        handle.createQuery("SELECT edited_fields::text FROM generation_results WHERE request_id = :id").bind("id", request.id.value).mapTo(String::class.java).one()
     }
 
     private fun results(request: DocumentGenerationRequest): List<ResultLine> = jdbi.withHandle<List<ResultLine>, Exception> { handle ->

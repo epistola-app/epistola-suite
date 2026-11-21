@@ -108,6 +108,13 @@ Under `epistola.generation.interactive`:
 `epistola.partitions.retention-months` must keep that partition for the longest wait. The boot is
 refused when it would not.
 
+**Personal data.** A form holds the caller's data and texts, and a result of a job with a form
+carries the submitted data and edited fields. The form is dropped with its request: by retention,
+and when the request is deleted with its tenant, template, variant, version or environment (a
+trigger, ADR 0056). Results survive their tenant so collectors can still read them, but deleting the
+tenant clears the data and edited fields they carry (`ForgetDeletedTenantResultData`); otherwise
+results retention (`generation-results-retention-months`, 1 by default) removes them.
+
 **Return addresses.** A `returnUrl` or link must start with an allowed address
 (`ReturnUrlPolicy`):
 

@@ -95,9 +95,10 @@ silently removes the foreign key.
 - `generation_form_link_redemptions` (redeemed link nonces) stays a table of its own: it belongs to no
   request and lives minutes.
 
-## Open question, separate from this decision
+## Related: form data in results after the tenant is deleted
 
 `generation_results` deliberately has no foreign key to the tenant: results survive tenant deletion
 so collectors can still read them. Interactive generation copies the submitted `data` and
-`editedFields` into the results, so a deleted tenant's form data stays until results retention (one
-month by default). Proposed: `DeleteTenant` clears those two columns on the tenant's results.
+`editedFields` into the results, so deleting the tenant clears those two columns on its results, in
+the same transaction (`ForgetDeletedTenantResultData`, run by an `IMMEDIATE` event handler on
+`DeleteTenant`). The rest of each result stays.
