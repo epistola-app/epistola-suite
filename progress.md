@@ -125,8 +125,8 @@ the person (`GenerationJobTokens`); an environment following a draft renders tha
   `ApplicationHandlerTest` cases. No REST or MCP: the contract has no application resource. (3) Fixed (20 November): the demo `corporate` theme's page margins were `72`
   on each side, read as millimetres (`effectivePageSettingsMarginMm`), so every template taking the
   theme's margins rendered a 66 mm text column; now 25 mm. Demo suite 90/90; the objection letter
-  fits one page. (4) The demo loader's toggle seeding has no
-  test of its own (seen working live).
+  fits one page. (4) The demo loader's toggle seeding is covered by
+  `DemoTenantListReachableIT` (fails with the seeding left out).
 - Noticed, untouched: the dialog's "Latest release" option uses `CatalogDraftBar.latestPublished`, a
   release cut in this installation, so an installed catalog (the demo's) offers only its
   environments. The API tab has the same limit. The REST `downloadDocument` puts the stored filename
@@ -151,8 +151,8 @@ the person (`GenerationJobTokens`); an environment following a draft renders tha
 - ✅ unit: `OriginsTest`, `EditedFieldsTest`, `ReturnUrlsTest`, `ApiValidationCodesTest`,
   `KnownFeaturesTest`; generation/collect/document/partition core tests (179) and
   `SchemaHygieneAppTest` green.
-- ❌ a render that fails after submission keeps `data` on its result: the code path is shared with
-  `completed`, but no test forces the failure.
+- ✅ a render that fails after submission keeps `data` and `editedFields` on its result:
+  `InteractiveGenerationFailedRenderIT` (fails with the result's data limited to completed results).
 
 **Noticed, untouched:**
 
