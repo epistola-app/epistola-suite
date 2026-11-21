@@ -259,7 +259,7 @@ importers:
         version: 1.8.0
       driver.js:
         specifier: ^1.8.0
-        version: 1.12.1
+        version: 1.14.0
       jsonata:
         specifier: ^2.2.2
         version: 2.2.2
@@ -1997,8 +1997,8 @@ packages:
   dijkstrajs@1.0.3:
     resolution: {integrity: sha512-qiSlmBq9+BCdCA/L46dw8Uy93mloxsPSbwnm5yrKn2vMPiy8KyAskTF6zuV/j5BMsmOGZDPs7KjU+mjb670kfA==}
 
-  driver.js@1.12.1:
-    resolution: {integrity: sha512-upBRqQW+bz+yfH7ee1gjWBaq0ue7i2343f2U3WzIUc3bhs5hwb2jz86cuB8gArRh3nfNp77CLNgkUtArTYTKFA==}
+  driver.js@1.14.0:
+    resolution: {integrity: sha512-BnCFuNU8QO2rrYiDra43Ortx6D6chqMvEMF1q3fWQfsC3xNyCX4T1P1vZDTXTxGdtcXh2v5r11hxSpNLF3DJVw==}
 
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
@@ -5693,7 +5693,7 @@ snapshots:
 
   dijkstrajs@1.0.3: {}
 
-  driver.js@1.12.1: {}
+  driver.js@1.14.0: {}
 
   dunder-proto@1.0.1:
     dependencies:
