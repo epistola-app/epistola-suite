@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.GenerationJobTokens
@@ -123,60 +124,71 @@ class TemplateGenerationHandler(
         // Only what the dialog offered: an environment serving the catalog, its latest release, a variant of the template.
         val target = choices.targets.firstOrNull { it.value == form["target"] }
         val variant = form.getVariantId("variant")?.takeIf { key -> choices.variants.any { it.id == key } }
-        var started: DocumentGenerationRequest? = null
-        var token: String? = null
-        val result = when {
-            form.hasErrors() -> form
-
-            target == null -> form.withError("target", "Choose where to generate from.")
-
-            variant == null -> form.withError("variant", "Choose a variant of this template.")
-
-            data == null -> form.withError("data", "Enter the data as a JSON object, such as {\"name\": \"Jane\"}.")
-
-            else -> {
-                val requestId = GenerationRequestKey.generate()
-                val user = SecurityContext.current().userId
-                token = tokens.issue(requestId, user, EpistolaClock.offsetDateTime().plus(interactiveProperties.defaultExpiry).plus(TOKEN_GRACE))
-                val trigger = form["trigger"].takeIf { choices.formsAvailable }?.let { InteractiveTrigger.entries.firstOrNull { t -> t.name == it } }
-                try {
-                    started = GenerateDocument(
-                        catalog = catalog,
-                        templateId = ctx.templateId.key,
-                        variantId = variant,
-                        environmentId = target.environment,
-                        data = data,
-                        filename = null,
-                        interactive = trigger?.let {
-                            InteractiveGeneration(it, returnUrl = absolute(jobPage(ctx, token)), title = ctx.template.name)
-                        },
-                        requestId = requestId,
-                    ).execute()
-                    form
-                } catch (e: ValidationException) {
-                    form.withError(e.field.takeIf { it in FIELDS } ?: "target", e.message)
-                } catch (e: RuntimeException) {
-                    val message = generationProblem(e) ?: throw e
-                    form.withError("target", message)
-                }
-            }
+        val outcome = when {
+            form.hasErrors() -> Refused(form)
+            target == null -> Refused(form.withError("target", "Choose where to generate from."))
+            variant == null -> Refused(form.withError("variant", "Choose a variant of this template."))
+            data == null -> Refused(form.withError("data", "Enter the data as a JSON object, such as {\"name\": \"Jane\"}."))
+            else -> start(ctx, catalog, choices, form, target, variant, data)
         }
 
-        if (result.hasErrors()) {
-            return request.htmx {
-                dialogFieldErrors(template = DIALOG, fragmentName = "generate-form", formTarget = "#generate-document-form", formData = result) {
+        return when (outcome) {
+            is Refused -> request.htmx {
+                dialogFieldErrors(template = DIALOG, fragmentName = "generate-form", formTarget = "#generate-document-form", formData = outcome.form) {
                     dialogModel(ctx, choices).forEach { (k, v) -> k to v }
                 }
                 onFullPage { redirect(templatePage(ctx)) }
             }
-        }
-        val formUrl = started!!.interactive?.url
-        val next = formUrl ?: jobPage(ctx, token!!)
-        return request.htmx {
-            dialogRedirect(next)
-            onFullPage { redirect(next) }
+
+            is Started -> request.htmx {
+                dialogRedirect(outcome.next)
+                onFullPage { redirect(outcome.next) }
+            }
         }
     }
+
+    /**
+     * Starts the job under a request id chosen here, because the form's return URL carries a token
+     * signed over it. [Started] names where the browser goes next: the form, or the job's page.
+     */
+    private fun start(
+        ctx: TemplateDetailContext,
+        catalog: CatalogId,
+        choices: GenerateChoices,
+        form: FormData,
+        target: GenerateChoices.Target,
+        variant: VariantKey,
+        data: ObjectNode,
+    ): GenerateOutcome {
+        val requestId = GenerationRequestKey.generate()
+        val token = tokens.issue(requestId, SecurityContext.current().userId, EpistolaClock.offsetDateTime().plus(interactiveProperties.defaultExpiry).plus(TOKEN_GRACE))
+        val trigger = form["trigger"].takeIf { choices.formsAvailable }?.let { InteractiveTrigger.entries.firstOrNull { t -> t.name == it } }
+        return try {
+            val started = GenerateDocument(
+                catalog = catalog,
+                templateId = ctx.templateId.key,
+                variantId = variant,
+                environmentId = target.environment,
+                data = data,
+                filename = null,
+                interactive = trigger?.let { InteractiveGeneration(it, returnUrl = absolute(jobPage(ctx, token)), title = ctx.template.name) },
+                requestId = requestId,
+            ).execute()
+            Started(started.interactive?.url ?: jobPage(ctx, token))
+        } catch (e: ValidationException) {
+            Refused(form.withError(e.field.takeIf { it in FIELDS } ?: "target", e.message))
+        } catch (e: RuntimeException) {
+            Refused(form.withError("target", generationProblem(e) ?: throw e))
+        }
+    }
+
+    private sealed interface GenerateOutcome
+
+    /** The dialog again, with what to correct. */
+    private data class Refused(val form: FormData) : GenerateOutcome
+
+    /** The job started; [next] is where the browser goes. */
+    private data class Started(val next: String) : GenerateOutcome
 
     /**
      * `GET …/templates/{id}/jobs/{token}`: the job's page — what it renders, where it stands and what
@@ -186,12 +198,14 @@ class TemplateGenerationHandler(
         val ctx = detailHelper.loadContext(request) ?: return ServerResponse.notFound().build()
         val job = ownJob(request, ctx.templateId.tenantKey, ctx) ?: return ServerResponse.notFound().build()
         val model = jobModel(ctx, job, request.pathVariable("token"))
-        if (request.headers().firstHeader("HX-Request") != null && request.headers().firstHeader("HX-Boosted") == null) {
-            return request.htmx { fragment(JOB, "job") { model.forEach { (k, v) -> k to v } } }
-        }
-        return ServerResponse.ok().page(JOB) {
-            "pageTitle" to "Generated document - Epistola"
-            model.forEach { (k, v) -> k to v }
+        return request.htmx {
+            fragment(JOB, "job") { model.forEach { (k, v) -> k to v } }
+            onFullPage {
+                page(JOB) {
+                    "pageTitle" to "Generated document - Epistola"
+                    model.forEach { (k, v) -> k to v }
+                }
+            }
         }
     }
 
