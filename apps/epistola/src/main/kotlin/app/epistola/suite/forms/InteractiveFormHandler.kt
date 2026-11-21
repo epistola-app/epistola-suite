@@ -15,10 +15,12 @@ import app.epistola.suite.documents.interactive.FormOutcome
 import app.epistola.suite.documents.interactive.FormSession
 import app.epistola.suite.documents.interactive.InteractiveFormLinks
 import app.epistola.suite.documents.interactive.InteractiveGenerationProperties
+import app.epistola.suite.documents.interactive.Origins
 import app.epistola.suite.documents.queries.FormPreviewOutcome
 import app.epistola.suite.documents.queries.GetInteractiveForm
 import app.epistola.suite.documents.queries.InteractiveFormView
 import app.epistola.suite.documents.queries.PreviewInteractiveForm
+import app.epistola.suite.embedding.EmbeddingProperties
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.validation.TemplateDataAnalysis
@@ -56,6 +58,7 @@ class InteractiveFormHandler(
     private val links: InteractiveFormLinks,
     private val properties: InteractiveGenerationProperties,
     private val objectMapper: ObjectMapper,
+    private val embeddingProperties: EmbeddingProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -149,6 +152,7 @@ class InteractiveFormHandler(
         )
         return ServerResponse.status(status)
             .header(HttpHeaders.SET_COOKIE, sessionCookie(view.requestId, view.session).toString())
+            .header(CONTENT_SECURITY_POLICY, formsContentSecurityPolicy(embeddingProperties, view.returnUrl?.let(Origins::of)))
             .headers(::privatePage)
             .render("forms/form", model)
     }
@@ -222,6 +226,8 @@ class InteractiveFormHandler(
         const val GUARD_HEADER = "X-Form-Guard"
 
         /** No referrer leaves the page (links on it must not learn its URL), and nothing of it is cached. */
+        private const val CONTENT_SECURITY_POLICY = "Content-Security-Policy"
+
         fun privatePage(headers: HttpHeaders) {
             headers.set("Referrer-Policy", "no-referrer")
             headers.setCacheControl("no-store")

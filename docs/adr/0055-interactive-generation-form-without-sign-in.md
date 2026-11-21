@@ -66,7 +66,9 @@ The core commands (`GetInteractiveForm`, `SubmitInteractiveForm`, `CancelInterac
 has no principal, and the session is the authority over one form and nothing else. An unknown
 request, a request without a form, a forged, expired or used code, and a closed form all get one
 neutral page, so the page does not reveal which forms exist. Responses send
-`Referrer-Policy: no-referrer`, `Cache-Control: no-store` and the UI's strict CSP.
+`Referrer-Policy: no-referrer`, `Cache-Control: no-store` and the UI's strict CSP, with
+`form-action 'self'` plus the origin of the form's return address, where submitting redirects (a
+browser holds that redirect to `form-action` too).
 
 ### 5. The preview renders only the job's own target, within bounds
 

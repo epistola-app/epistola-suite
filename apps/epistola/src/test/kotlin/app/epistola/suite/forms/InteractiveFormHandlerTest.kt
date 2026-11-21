@@ -140,6 +140,19 @@ class InteractiveFormHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `forms on the page may post only to this installation, and on to the form's return address`() {
+        fun formAction(response: HttpResponse<String>): String = response.headers().allValues("Content-Security-Policy").single()
+            .split(";").map { it.trim() }.single { it.startsWith("form-action ") }
+
+        val returning = waitingRequest(returnUrl = "https://suite.test/back?tab=letters")
+        assertThat(formAction(get("/forms/${returning.id.value}", open(returning)))).isEqualTo("form-action 'self' https://suite.test")
+
+        val staying = waitingRequest()
+        assertThat(formAction(get("/forms/${staying.id.value}", open(staying)))).isEqualTo("form-action 'self'")
+        assertThat(formAction(get("/forms/${UUID.randomUUID()}"))).`as`("the neutral page").isEqualTo("form-action 'self'")
+    }
+
+    @Test
     fun `a post without the page's guard does nothing`() {
         val request = waitingRequest()
         val session = open(request)

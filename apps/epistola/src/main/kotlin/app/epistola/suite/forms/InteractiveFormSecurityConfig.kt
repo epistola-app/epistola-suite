@@ -23,8 +23,8 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
  *   create or read an HTTP session here, and never redirects to the login page.
  * - **No Spring CSRF token.** The session cookie is `SameSite=Lax`, so another site's post never
  *   carries it, and every post must also carry the form guard the page rendered.
- * - The UI's content security policy, `Referrer-Policy: no-referrer`, and no framing unless
- *   embedding is enabled.
+ * - The UI's content security policy with `form-action 'self'` ([formsContentSecurityPolicy]),
+ *   `Referrer-Policy: no-referrer`, and no framing unless embedding is enabled.
  */
 @Configuration(proxyBeanMethods = false)
 class InteractiveFormSecurityConfig(private val embeddingProperties: EmbeddingProperties) {
@@ -41,10 +41,19 @@ class InteractiveFormSecurityConfig(private val embeddingProperties: EmbeddingPr
             .anonymous { it.disable() }
             .csrf { it.disable() }
             .headers { headers ->
-                headers.contentSecurityPolicy { it.policyDirectives(contentSecurityPolicy(embeddingProperties)) }
+                headers.contentSecurityPolicy { it.policyDirectives(formsContentSecurityPolicy(embeddingProperties)) }
                 headers.referrerPolicy { it.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER) }
                 if (embeddingProperties.disableXFrameOptions) headers.frameOptions { it.disable() }
             }
         return http.build()
     }
 }
+
+/**
+ * The content security policy of the form's pages: the UI's, and forms on them may post only to this
+ * installation, so markup that ever got onto a page cannot send what the person types elsewhere. A
+ * browser holds the redirect after a post to it as well (Chrome does), so the form page adds the
+ * origin of its own return address ([returnOrigin]), where submitting and cancelling send the person.
+ * The form page sets it itself; the chain sets it without one on every other response.
+ */
+internal fun formsContentSecurityPolicy(embedding: EmbeddingProperties, returnOrigin: String? = null): String = contentSecurityPolicy(embedding) + "; form-action 'self'" + (returnOrigin?.let { " $it" } ?: "")

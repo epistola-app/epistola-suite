@@ -70,6 +70,21 @@ class InteractiveFormUiTest : BasePlaywrightTest() {
     }
 
     @Test
+    fun `submitting sends the browser on to the caller's return address, which the page's policy allows`() {
+        // Another origin than this test server's: Chrome holds the redirect after a form post to the
+        // page's form-action, so the return address's origin must be in it.
+        val request = waitingRequest(returnUrl = "https://suite.test/back")
+
+        gotoAndReady(request.interactive!!.url!!.substringAfter("https://suite.test"))
+        page.locator("#field-motivation").fill("Because.")
+
+        val returned = page.waitForRequest({ it.isNavigationRequest && it.url().startsWith("https://suite.test/back") }) {
+            page.getByTestId("form-submit").click()
+        }
+        org.assertj.core.api.Assertions.assertThat(returned.url()).contains("epistolaRequestStatus=pending")
+    }
+
+    @Test
     fun `previewing before the data is complete marks what is missing`() {
         val request = waitingRequest()
 
@@ -96,7 +111,7 @@ class InteractiveFormUiTest : BasePlaywrightTest() {
     }
 
     /** A request waiting for input on a released template whose contract requires `name` and `motivation`. */
-    private fun waitingRequest(): DocumentGenerationRequest = withMediator {
+    private fun waitingRequest(returnUrl: String? = null): DocumentGenerationRequest = withMediator {
         val tenant = TenantKey.of("interactiveformuitest-${UUID.randomUUID().toString().take(8)}")
         createTenant(tenant, "Form UI Tenant")
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("letter"), CatalogId.default(TenantId(tenant))))
@@ -119,7 +134,7 @@ class InteractiveFormUiTest : BasePlaywrightTest() {
                 variantId = variant.key,
                 data = json("""{"name": "Jane"}"""),
                 filename = "letter.pdf",
-                interactive = InteractiveGeneration(InteractiveTrigger.INCOMPLETE, title = "Letter, case Z-1"),
+                interactive = InteractiveGeneration(InteractiveTrigger.INCOMPLETE, title = "Letter, case Z-1", returnUrl = returnUrl),
             ).execute()
         }
     }
