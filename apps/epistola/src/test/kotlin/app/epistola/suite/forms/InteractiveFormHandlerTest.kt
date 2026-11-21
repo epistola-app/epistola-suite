@@ -115,6 +115,31 @@ class InteractiveFormHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `text that closes a script element stays inside the page's JSON, from the contract and from the caller`() {
+        // Unquoted attributes, as an attacker would write them: the JSON escapes quotes, not this.
+        val breakout = "</script><meta http-equiv=refresh content=0;url=https://evil.example>"
+        val model = objectMapper.createObjectNode().put("type", "object").put("additionalProperties", false).also { schema ->
+            schema.putObject("properties").also { properties ->
+                properties.putObject("name").put("type", "string").put("description", breakout)
+                properties.putObject("motivation").put("type", "string")
+            }
+            schema.putArray("required").add("name").add("motivation")
+        }
+        val callerData = objectMapper.createObjectNode().put("name", "Jane").put(breakout, "x")
+        val request = waitingRequest(dataModel = model, data = callerData)
+        val session = open(request)
+
+        val page = get("/forms/${request.id.value}", session).body()
+
+        assertThat(page).doesNotContain("<meta http-equiv=refresh")
+        val definition = json(scriptJson(page, "form-definition"))
+        assertThat(definition.at("/schema/properties/name/description").asString()).isEqualTo(breakout)
+        val problems = objectMapper.readTree(scriptJson(page, "form-problems"))
+        val messages: List<String> = problems.toList().map { it.get("message").asString() }
+        assertThat(messages).anyMatch { it.contains(breakout) }
+    }
+
+    @Test
     fun `a post without the page's guard does nothing`() {
         val request = waitingRequest()
         val session = open(request)
@@ -199,6 +224,9 @@ class InteractiveFormHandlerTest : BaseIntegrationTest() {
         return opened.headers().firstValue("Set-Cookie").orElseThrow().substringBefore(';')
     }
 
+    /** The text of the page's `<script type="application/json" id="[id]">`, as the browser's parser ends it. */
+    private fun scriptJson(page: String, id: String): String = page.substringAfter("id=\"$id\">").substringBefore("</script>")
+
     private fun guardOf(page: String): String = Regex("""name="guard" value="([^"]+)"""").find(page)!!.groupValues[1]
 
     private fun status(request: DocumentGenerationRequest): RequestStatus = withMediator { GetGenerationJob(request.tenantKey, request.id).query()!!.request.status }
@@ -231,14 +259,20 @@ class InteractiveFormHandlerTest : BaseIntegrationTest() {
     )
 
     /** A request waiting for input on a released template whose contract requires `name` and `motivation`. */
-    private fun waitingRequest(title: String? = null, instructions: String? = null, returnUrl: String? = null): DocumentGenerationRequest = withMediator {
+    private fun waitingRequest(
+        title: String? = null,
+        instructions: String? = null,
+        returnUrl: String? = null,
+        dataModel: ObjectNode = json("""{"type": "object", "properties": {"name": {"type": "string"}, "motivation": {"type": "string"}}, "required": ["name", "motivation"]}"""),
+        data: ObjectNode = json("""{"name": "Jane"}"""),
+    ): DocumentGenerationRequest = withMediator {
         val tenant = TenantKey.of("interactiveformhandlert-${UUID.randomUUID().toString().take(8)}")
         createTenant(tenant, "Form Tenant")
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("letter"), CatalogId.default(TenantId(tenant))))
         CreateDocumentTemplate(variant.templateId, "Letter", catalogVersion = null).execute()
         UpdateDataContract(
             templateId = variant.templateId,
-            dataModel = json("""{"type": "object", "properties": {"name": {"type": "string"}, "motivation": {"type": "string"}}, "required": ["name", "motivation"]}"""),
+            dataModel = dataModel,
             dataExamples = listOf(DataExample("example-1", "Example 1", json("""{"name": "Ada", "motivation": "An example."}"""))),
             catalogVersion = null,
         ).execute()
@@ -248,15 +282,15 @@ class InteractiveFormHandlerTest : BaseIntegrationTest() {
         SaveFeatureToggle(tenant, KnownFeatures.INTERACTIVE_GENERATION, true).execute()
         // The server's request threads run on the system clock, not this test's: the link is issued on
         // the same clock it is checked against, or it would look expired (or not yet valid).
-        EpistolaClock.withClock(Clock.systemUTC()) { generate(tenant, variant, title, instructions, returnUrl) }
+        EpistolaClock.withClock(Clock.systemUTC()) { generate(tenant, variant, title, instructions, returnUrl, data) }
     }
 
-    private fun generate(tenant: TenantKey, variant: VariantId, title: String?, instructions: String?, returnUrl: String?) = withMediator {
+    private fun generate(tenant: TenantKey, variant: VariantId, title: String?, instructions: String?, returnUrl: String?, data: ObjectNode) = withMediator {
         GenerateDocument(
             catalog = testCatalog(tenant, CatalogKey.DEFAULT),
             templateId = variant.templateId.key,
             variantId = variant.key,
-            data = json("""{"name": "Jane"}"""),
+            data = data,
             filename = "letter.pdf",
             interactive = InteractiveGeneration(InteractiveTrigger.INCOMPLETE, returnUrl = returnUrl, title = title, instructions = instructions),
         ).execute()

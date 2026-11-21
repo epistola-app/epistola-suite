@@ -142,9 +142,9 @@ class InteractiveFormHandler(
             "expiresAt" to view.expiresAt,
             "returnUrl" to view.returnUrl,
             "guard" to links.formGuard(view.requestId),
-            "definition" to objectMapper.writeValueAsString(definitionJson(view.definition)),
+            "definition" to scriptJson(definitionJson(view.definition)),
             "data" to objectMapper.writeValueAsString(data),
-            "problems" to objectMapper.writeValueAsString(problems(analysis)),
+            "problems" to scriptJson(problems(analysis)),
             "hasProblems" to (!analysis.valid && status != HttpStatus.OK),
         )
         return ServerResponse.status(status)
@@ -167,6 +167,18 @@ class InteractiveFormHandler(
         .location(URI.create(location))
         .headers(::privatePage)
         .build()
+
+    /**
+     * [value] as JSON the page can hold inside `<script type="application/json">` unescaped: `<`, `>`
+     * and `&` written as `\u003c`, `\u003e` and `\u0026`, which still parse as the same text. Strings
+     * in it come from the contract's author and the caller (a validator repeats an unknown data key in
+     * its message), and a `</script>` among them would otherwise end the element and add markup to a
+     * page served without signing in.
+     */
+    private fun scriptJson(value: Any): String = objectMapper.writeValueAsString(value)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
 
     private fun definitionJson(definition: FormDefinition): Map<String, Any?> = when (definition) {
         is FormDefinition.Generated -> mapOf("kind" to definition.kind, "schema" to definition.schema)
