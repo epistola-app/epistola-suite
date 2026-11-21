@@ -67,6 +67,28 @@ CREATE INDEX idx_interactions_request ON generation_request_interactions (reques
 -- No initial partitions: PartitionMaintenanceScheduler creates the current and next month at
 -- startup, as for document_content.
 
+-- A form goes with its request. Requests are deleted by the cascades from their tenant, template,
+-- variant, version or environment, and the form holds personal data (the caller's data and texts),
+-- so it must not stay behind. A foreign key cannot say this: retention drops an old request partition
+-- with DROP TABLE ... CASCADE, which drops a foreign key between partitioned tables whole, silently.
+-- Retention drops this table's partitions on the same schedule; this trigger covers row deletes.
+CREATE FUNCTION delete_generation_request_interaction() RETURNS trigger
+    LANGUAGE plpgsql
+AS $$
+BEGIN
+    DELETE FROM generation_request_interactions WHERE request_id = OLD.id AND created_at = OLD.created_at;
+    RETURN OLD;
+END;
+$$;
+
+COMMENT ON FUNCTION delete_generation_request_interaction() IS 'Deletes the form of a deleted generation request (trg_requests_delete_interaction).';
+
+-- Only requests created with interactive have a form; every other delete skips the lookup.
+CREATE TRIGGER trg_requests_delete_interaction
+    AFTER DELETE ON document_generation_requests
+    FOR EACH ROW WHEN (OLD.has_form)
+    EXECUTE FUNCTION delete_generation_request_interaction();
+
 -- A link's code works once: the nonce of every redeemed code is kept until the code would have
 -- expired anyway, then swept. Codes live minutes, so the table stays small.
 CREATE TABLE generation_form_link_redemptions (

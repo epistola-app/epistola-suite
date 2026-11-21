@@ -48,6 +48,7 @@ import app.epistola.suite.security.PrincipalApplication
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.ThenScope
@@ -269,6 +270,17 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
         assertThat(runAs(person) { GetGenerationJob(request.tenantKey, request.id).query() }!!.request.interactive?.url).isNotNull()
         val colleague = personPrincipal(setup.tenant.id, TenantRole.entries.toSet())
         assertThat(runAs(colleague) { GetGenerationJob(request.tenantKey, request.id).query() }!!.request.interactive?.url).isNull()
+    }
+
+    @Test
+    fun `deleting what a waiting request belongs to deletes its form too, with the personal data it holds`() = withReleasedTemplate { setup ->
+        val request = execute(setup.generate("""{"customer": {"name": "Jane"}}""", incomplete))
+        assertThat(formRows(request)).isEqualTo(1)
+
+        execute(DeleteTenant(setup.tenant.id))
+
+        assertThat(requestRows(request)).`as`("the request, by the tenant's cascade").isZero()
+        assertThat(formRows(request)).`as`("its form, the caller's data and texts").isZero()
     }
 
     @Test
@@ -640,6 +652,15 @@ class InteractiveGenerationIntegrationTest : IntegrationTestBase() {
 
     // Read straight from the table: collect's own query needs a registered consumer node, and the
     // assertion is about what was emitted, not how it is streamed (NdjsonResultStreamTest).
+    // Counted straight in the tables: no query reads a form or request of a deleted tenant.
+    private fun formRows(request: DocumentGenerationRequest): Int = jdbi.withHandle<Int, Exception> { handle ->
+        handle.createQuery("SELECT count(*) FROM generation_request_interactions WHERE request_id = :id").bind("id", request.id.value).mapTo(Int::class.java).one()
+    }
+
+    private fun requestRows(request: DocumentGenerationRequest): Int = jdbi.withHandle<Int, Exception> { handle ->
+        handle.createQuery("SELECT count(*) FROM document_generation_requests WHERE id = :id").bind("id", request.id.value).mapTo(Int::class.java).one()
+    }
+
     private fun results(request: DocumentGenerationRequest): List<ResultLine> = jdbi.withHandle<List<ResultLine>, Exception> { handle ->
         handle.createQuery("SELECT status, cancel_reason, data IS NOT NULL AS has_data FROM generation_results WHERE request_id = :id ORDER BY sequence")
             .bind("id", request.id.value)

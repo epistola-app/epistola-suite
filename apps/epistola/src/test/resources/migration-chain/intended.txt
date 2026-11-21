@@ -2804,6 +2804,15 @@ new generation_results.application_id
 # a person to complete its data in a form: its form, the opened single-use links, and a result can be
 # CANCELLED. An application lists where its forms may return to (allowed_return_urls). The tables it
 # changes are listed above with their new columns.
++ CREATE FUNCTION public.delete_generation_request_interaction() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    DELETE FROM generation_request_interactions WHERE request_id = OLD.id AND created_at = OLD.created_at;
+    RETURN OLD;
+END;
+$$
++ CREATE TRIGGER trg_requests_delete_interaction AFTER DELETE ON public.document_generation_requests FOR EACH ROW WHEN (old.has_form) EXECUTE FUNCTION public.delete_generation_request_interaction()
 + ALTER TABLE ONLY public.generation_form_link_redemptions
     ADD CONSTRAINT generation_form_link_redemptions_pkey PRIMARY KEY (nonce)
 + ALTER TABLE ONLY public.generation_request_interactions
