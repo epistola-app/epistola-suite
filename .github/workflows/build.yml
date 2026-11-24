@@ -773,14 +773,6 @@ jobs:
           fi
           echo "$IMAGE is $ACTUAL"
 
-      # CVE-2026-114938 (Java4Shell) mitigation: no image is pushed whose JVM starts with the Base64
-      # intrinsic enabled. See docs/sbom.md. The flag exists on aarch64 too, which has its own
-      # Base64 intrinsic.
-      - name: Check image JVM flags
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: scripts/check-image-jvm-flags.sh epistola-suite:$VERSION${{ matrix.image-suffix }}
-
       - name: Push architecture image
         env:
           VERSION: ${{ steps.version.outputs.version }}

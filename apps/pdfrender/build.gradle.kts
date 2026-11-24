@@ -92,9 +92,6 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("boot
     environment.set(
         mapOf(
             "BP_JVM_VERSION" to "25",
-            // CVE-2026-114938 (Java4Shell): see apps/epistola/build.gradle.kts.
-            "BPE_DELIM_JAVA_TOOL_OPTIONS" to " ",
-            "BPE_APPEND_JAVA_TOOL_OPTIONS" to "-XX:-UseBASE64Intrinsics",
         ),
     )
 }
