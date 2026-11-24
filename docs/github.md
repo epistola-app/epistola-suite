@@ -75,19 +75,28 @@ PRs for the test jobs). On the tag it:
 1. Extracts the version from the tag (`v1.0.0-RC3` → `1.0.0-RC3`) and **asserts it
    equals `gradle.properties` `version`** — a mismatch (e.g. the file still says
    `-SNAPSHOT`) fails the release loudly instead of shipping a wrong image.
-2. Builds the image with `gradle :apps:epistola:bootBuildImage`.
-3. Pushes `ghcr.io/epistola-app/epistola-suite` with tags `:<version>`, `:<sha>`, and `:latest`
-   unless the version is a pre-release (it contains a `-`).
-4. Signs with Cosign (keyless OIDC), attaches the SBOM attestation, and uploads the
-   SBOM artifacts to the GitHub Release.
+2. Builds the image with `gradle :apps:epistola:bootBuildImage` once per architecture, each on
+   a runner of that architecture: `linux/amd64` on `ubuntu-latest`, `linux/arm64` on
+   `ubuntu-24.04-arm`. The pinned Paketo builder and run image are multi-arch, so no emulation
+   is involved. Each build is checked for its architecture and its JVM flags, then pushed as
+   `:<version>-amd64` / `:<version>-arm64`. These are intermediate tags; do not deploy them.
+3. The `docker-manifest` job joins both into one multi-arch image and pushes it as
+   `ghcr.io/epistola-app/epistola-suite` with tags `:<version>`, `:<sha>`, and `:latest`
+   unless the version is a pre-release (it contains a `-`). A pull resolves to the node's
+   architecture.
+4. Signs the multi-arch index and each architecture image in it with Cosign (keyless OIDC),
+   attaches the SBOM attestation to the index, and uploads the SBOM artifacts to the GitHub
+   Release.
+
+The `-demo` image goes through the same steps (`:<version>-demo`, `-demo-amd64`, `-demo-arm64`).
 
 Chart tags (`epistola-*`) deliberately do **not** match `v*`, so a chart release
 never triggers the app pipeline.
 
 #### On a PR with the `publish` label
 
-Builds + pushes a snapshot image `…:<prev-version>-pr-<number>-<run>` (e.g.
-`1.0.0-RC2-pr-42-5`) for testing. Add the `publish` label to trigger.
+Builds + pushes a multi-arch snapshot image `…:<prev-version>-pr-<number>-<run>` (e.g.
+`1.0.0-RC2-pr-42-5`) for testing, the same way as a release. Add the `publish` label to trigger.
 
 ### Helm Chart Publishing
 
