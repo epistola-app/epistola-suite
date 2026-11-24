@@ -11,7 +11,8 @@ need. Tool versions come from `.mise.toml` via `mise-action`.
 | `test-unit-integration` | `compile`           | `gradle test`, plus `koverXmlReport` on `main` pushes (coverage is measured only when a Kover task is asked for)                                                                                                |
 | `test-ui`               | `compile`           | `gradle uiTest` (Playwright)                                                                                                                                                                                    |
 | `coverage`              | both test jobs      | coverage badge, `main` pushes only                                                                                                                                                                              |
-| `docker`                | tests, checks, sbom | image build and publish, `v*` tags or a PR labelled `publish`                                                                                                                                                   |
+| `docker`                | tests, checks, sbom | image build per architecture (amd64 on `ubuntu-latest`, arm64 on `ubuntu-24.04-arm`), pushed as `…-amd64`/`…-arm64`; `v*` tags or a PR labelled `publish`                                                       |
+| `docker-manifest`       | `docker`            | joins both architectures into the multi-arch tags people pull, then signs (`--recursive`) and attests the index                                                                                                 |
 
 Other gates: `gitleaks.yml` (secret scan), `codeql.yml`, plus `vulnerability-advisories.yml`,
 `helm.yml` and `epistola-chart-smoke.yml` on their path filters. Not a gate: `model-test.yml` runs
