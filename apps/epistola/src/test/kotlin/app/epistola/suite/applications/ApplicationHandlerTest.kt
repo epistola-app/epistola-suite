@@ -73,6 +73,8 @@ class ApplicationHandlerTest : BaseIntegrationTest() {
         val dialog = get("/tenants/$tenant/applications/new", htmx = true, roles = roles).body!!
         assertThat(dialog).contains("value=\"TENANT_ADMINISTRATOR\"", "value=\"CONTENT_VIEWER\"")
         assertThat(dialog).doesNotContain("value=\"CONTENT_PUBLISHER\"", "value=\"DOCUMENT_GENERATOR\"")
+        // The missing roles are explained, not silently left out.
+        assertThat(dialog).contains("Only roles you hold yourself are offered.")
 
         val refused = post("/tenants/$tenant/applications", htmx = true, "name" to "Publisher", "roles" to "CONTENT_PUBLISHER", roles = roles)
         assertThat(refused.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
