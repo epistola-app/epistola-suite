@@ -78,7 +78,7 @@ PRs for the test jobs). On the tag it:
 2. Builds the image with `gradle :apps:epistola:bootBuildImage` once per architecture, each on
    a runner of that architecture: `linux/amd64` on `ubuntu-latest`, `linux/arm64` on
    `ubuntu-24.04-arm`. The pinned Paketo builder and run image are multi-arch, so no emulation
-   is involved. Each build is checked for its architecture and its JVM flags, then pushed as
+   is involved. Each build is checked for its architecture, then pushed as
    `:<version>-amd64` / `:<version>-arm64`. These are intermediate tags; do not deploy them.
 3. The `docker-manifest` job joins both into one multi-arch image and pushes it as
    `ghcr.io/epistola-app/epistola-suite` with tags `:<version>`, `:<sha>`, and `:latest`
