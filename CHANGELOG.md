@@ -2,6 +2,22 @@
 
 > **Note:** Helm chart changes are tracked separately in [`charts/epistola/CHANGELOG.md`](charts/epistola/CHANGELOG.md).
 
+## [2.1.0] - 2026-11-25
+
+This release fixes Java4Shell (CVE-2026-114938) and four other HIGH vulnerabilities in the bundled Java runtime by moving to Liberica JRE 25.0.5.1, and publishes the images for arm64 as well as amd64. Generated PDFs now record what produced them and declare the language they were rendered in. It has no database migrations, so it can be rolled back to 2.0.1 or 2.0.0 by redeploying that image; 2.0.1 keeps the Java4Shell mitigation, 2.0.0 does not ([rollback](docs/upgrades.md#rollback)).
+
+- feat(generation): **A generated PDF records where it came from in its metadata.** Every generated document now carries its generation context in its XMP metadata: the tenant, catalog, template and variant, the release (or draft) rendered, the environment, the request and batch ids, the render time, the locale and the engine. Anyone holding the PDF can tell what produced it without asking Epistola, and a calling system that keeps its own submission knows which release to send it to again. The submitted data and the correlation id are never included. PDF/A documents stay valid PDF/A-2b and PDF/UA-1; the properties are documented in `docs/generation.md`.
+
+- fix(docker,security): **The images ship the BellSoft Liberica 25.0.5.1 JRE, fixing CVE-2026-114938 to CVE-2026-114942.** The Java runtime in the images moves from 25.0.5.0.3 to 25.0.5.1, which fixes Java4Shell (CVE-2026-114938) and four other HIGH OpenJDK vulnerabilities. The images no longer start the JVM with `-XX:-UseBASE64Intrinsics`, the 2.0.1 mitigation for Java4Shell. The Helm chart keeps it in its default `jvm.options` for installations still running an older image.
+
+- fix(generation): **A generated PDF declares the language it was rendered in.** A PDF's document language (`/Lang`, which screen readers use to pick a voice) was always `nl-NL`, whatever the document's language. It is now the locale the document was rendered with: the variant's `system.locale`, else the tenant default, else the installation default. An installation and tenant with no locale set now declare `en-US`, the installation default.
+
+- **[user]** fix(ui,security): **The new-application dialog says why some roles are not offered.** The dialog lists only the roles you hold in the tenant, since an application cannot be given more than its creator has. It now says so, instead of leaving the other roles out without a word.
+
+- perf(security,api): **Concurrent API requests on one key no longer wait for each other to record the key's use.** Every API request wrote its key's "last used" time, on the request thread. Concurrent requests with the same key queued on that write, and under load it was most of the database time of a request. The time is now written at most once a minute per key, the precision the application page shows it at.
+
+- build(docker): **Release images are published for linux/arm64 as well as linux/amd64.** The `epistola-suite` image tags (`:<version>`, `:latest` and their `-demo` counterparts) are now multi-arch: the same tag runs natively on arm64 nodes, such as AWS Graviton or Apple Silicon. The signature and the SBOM attestation are on the multi-arch image, so `cosign verify` and `cosign verify-attestation` work as before.
+
 ## [2.0.1] - 2026-11-18
 
 This release mitigates Java4Shell (CVE-2026-114938), a critical vulnerability in the bundled Java runtime that can be reached before login on recent x86-64 servers: upgrade promptly, or until you can, add `-XX:-UseBASE64Intrinsics` to `JAVA_TOOL_OPTIONS`. It also shows each installation the support status of its own release line instead of the oldest one's, and says when an SSO sign-in failed instead of reporting a wrong password. It has no database migrations, so it can be rolled back to 2.0.0 by redeploying that image ([rollback](docs/upgrades.md#rollback)).
