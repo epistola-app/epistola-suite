@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.4.21"
-spring-boot = "4.1.2"
+spring-boot = "4.2.0"
 spring-dependency-management = "1.1.7"
 graalvm-native = "1.1.19"
 ktlint = "14.2.0"
@@ -14,7 +14,7 @@ jdbi = "3.55.0"
 json-schema-validator = "3.0.9"
 jsonata = "0.9.11"
 uuid-creator = "6.1.1"
-playwright = "1.65.0"
+playwright = "1.65.1"
 epistola-contract = "2.0.0"
 # The support connection's keys and client assertions; the version Spring Security 7.1 uses.
 nimbus-jose-jwt = "10.10"
@@ -24,9 +24,9 @@ swagger-request-validator = "2.46.1"
 # OTLP registry ships with (outside the Spring Boot BOM).
 otlp-proto = "1.10.0-alpha"
 epistola-exchange-client = "0.1.1"
-aws-sdk = "2.59.2"
+aws-sdk = "2.59.7"
 guava = "33.8.0-jre"
-spring-ai = "2.0.2"
+spring-ai = "2.1.0"
 archunit = "1.5.1"
 # Generates and shrinks the command sequences of the catalog model test.
 kotest = "6.2.7"

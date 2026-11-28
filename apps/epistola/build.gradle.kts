@@ -85,7 +85,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-session-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
-    implementation("org.commonmark:commonmark:0.32.0")
+    implementation("org.commonmark:commonmark:0.33.0")
 
     // Flyway for migrations (app deployment concern)
     implementation("org.flywaydb:flyway-database-postgresql")

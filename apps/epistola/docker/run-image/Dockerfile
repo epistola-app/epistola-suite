@@ -9,7 +9,7 @@
 #
 # Pinned to a version and its digest, never :latest, so a build is reproducible and
 # every base-image update arrives as a Renovate pull request that says what changed.
-FROM paketobuildpacks/ubuntu-noble-run:0.0.160@sha256:46ab1abf505005e7decb422d1005fbed4cdd489fa2af27be9e427c44d71439d6
+FROM paketobuildpacks/ubuntu-noble-run:0.0.162@sha256:00209cf68f2a1ed1cdb2f5a9502384433f0194fa11e1a9ac674bd0a2b54601b5
 
 # Pin the container locale to UTF-8. run-noble-base boots with the C/POSIX
 # locale, which makes the JVM resolve sun.jnu.encoding to ASCII and mis-handle
